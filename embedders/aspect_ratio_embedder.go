@@ -2,12 +2,18 @@ package embedders
 
 import "image"
 
-// AspectRatioEmbedder takes an image's aspect ratio and embeds it into a vector of one dimension in the range [-1, 1]
-// Horizontal images have value > 0, vertical images have aspect ratio < 0, square images have value 0
-// The bigger the difference between the images high and width, the higher the value by module
-type AspectRatioEmbedder struct{}
+type aspectRatioEmbedder struct{}
 
-func (r AspectRatioEmbedder) Img2Vec(image image.Image) (Vector, error) {
+// NewAspectRatioEmbedder returns an embedder that takes an image's aspect ratio and
+// embeds it into a vector of one dimension in the range [-1, 1]
+// Horizontal images have are converted into a positive value, vertical images are converted into a negative value,
+// square images have value of 0.
+// The bigger the difference between the images high and width, the higher the value by module
+func NewAspectRatioEmbedder() ImageEmbedder {
+	return aspectRatioEmbedder{}
+}
+
+func (r aspectRatioEmbedder) Img2Vec(image image.Image) (Vector, error) {
 	if image == nil {
 		return nil, ErrEmptyImage
 	}
@@ -26,6 +32,6 @@ func (r AspectRatioEmbedder) Img2Vec(image image.Image) (Vector, error) {
 	panic("unreachable")
 }
 
-func (r AspectRatioEmbedder) Dims() int {
+func (r aspectRatioEmbedder) Dims() int {
 	return 1
 }

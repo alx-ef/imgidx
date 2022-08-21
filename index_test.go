@@ -1,8 +1,8 @@
-package index_test
+package imgidx_test
 
 import (
+	"github.com/alef-ru/imgidx"
 	"github.com/alef-ru/imgidx/embedders"
-	"github.com/alef-ru/imgidx/index"
 	"image"
 	"testing"
 )
@@ -26,9 +26,9 @@ func img(w, h int) image.Image {
 	return image.NewRGBA(image.Rect(0, 0, w, h))
 }
 
-func testData(t *testing.T) index.Index {
-	var e embedders.ImageEmbedder = embedders.AspectRatioEmbedder{}
-	idx, err := index.NewKDTreeImageIndex(e)
+func testData(t *testing.T) imgidx.Index {
+	var e embedders.ImageEmbedder = embedders.NewAspectRatioEmbedder()
+	idx, err := imgidx.NewKDTreeImageIndex(e)
 	if err != nil {
 		t.Fatalf("Failed to create idx, : %v", err)
 	}
