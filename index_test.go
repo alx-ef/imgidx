@@ -4,30 +4,127 @@ import (
 	"github.com/alef-ru/imgidx"
 	"github.com/alef-ru/imgidx/embedders"
 	"image"
+	"image/color"
+	"os"
+	"path"
+	"sync"
 	"testing"
 )
 
-func Test_kDTreeMatcher_Happy_Pass(t *testing.T) {
-	idx := testData(t)
-	needle := image.NewRGBA(image.Rect(0, 0, 101, 99))
-	got, dist, err := idx.Nearest(needle)
+func createPockemonIndex(t *testing.T) imgidx.Index {
+	imgDirPath := "./testdata/pokemon"
+	files, err := os.ReadDir(imgDirPath)
+	if err != nil {
+		t.Fatalf("failed to read files in %s : %v", imgDirPath, err)
+	}
+	embedder := embedders.Composition([]embedders.ImageEmbedder{
+		embedders.NewAspectRatioEmbedder(),
+		embedders.NewColorDispersionEmbedder(),
+		embedders.NewLowResolutionEmbedder(8, 8),
+	})
+	idx, err := imgidx.NewKDTreeImageIndex(embedder)
+	if err != nil {
+		t.Fatalf("failed to create index : %v", err)
+	}
+	for _, file := range files {
+		_, err := imgidx.AddImageFile(idx, path.Join(imgDirPath, file.Name()), file.Name())
+		if err != nil {
+			t.Fatalf("failed to add image %s : %v", file.Name(), err)
+		}
+	}
+	return idx
+}
+
+func loadImage(filePath string) (image.Image, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			panic(err)
+		}
+	}(f)
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return nil, err
+	}
+	img.ColorModel().Convert(color.RGBA{})
+	return img, err
+}
+
+// Try to find image that is converted from PNG to JPEG and compressed
+func TestIndexMatch(t *testing.T) {
+	haystack := createPockemonIndex(t)
+	needlePath := "testdata/compressed_abomasnow.jpg"
+	expectedImg := "abomasnow.png"
+	needle, err := loadImage(needlePath)
+	if err != nil {
+		t.Fatalf("failed to load image %v : %v", needlePath, err)
+	}
+	got, dist, err := haystack.Nearest(needle)
 	if err != nil {
 		t.Fatalf("Failed to find nearest image, : %v", err)
 	}
-	if got != "1:1 image" {
+	if got != expectedImg {
 		t.Fatalf("Failed to find nearest image, got '%v', want '1:1 image'", got)
 	}
-	if dist == 0 {
-		t.Fatalf("Distance must be >0, because images are not the same")
+	if dist > 0.025 { // Since it is the same image, the difference must be low.
+		t.Fatalf("Distance between image is too far : %v", dist)
 	}
 }
 
-func img(w, h int) image.Image {
-	return image.NewRGBA(image.Rect(0, 0, w, h))
+// In this test I remove the matched image and try to search for the similar image.
+// I don't care about the image found. The main point, is that the distance is big.
+func TestIndexNotMatch(t *testing.T) {
+	haystack := createPockemonIndex(t)
+	needlePath := "testdata/compressed_abomasnow.jpg"
+	expectedImg := "abomasnow.png"
+	needle, err := loadImage(needlePath)
+	if err != nil {
+		t.Fatalf("failed to load image %v : %v", needlePath, err)
+	}
+
+	// Remove matched image to insure, that match is impossible
+	cnt, err := haystack.Remove(func(vec embedders.Vector, attrs interface{}) bool { return attrs == expectedImg })
+	if err != nil || cnt != 1 {
+		t.Fatalf("Failed to remove image %v : %v", expectedImg, err)
+	}
+	_, dist, err := haystack.Nearest(needle)
+	if err != nil {
+		t.Fatalf("Failed to find nearest image, : %v", err)
+	}
+	if dist < 3 { // Since we removed the matched image, the difference must be quite high
+		t.Fatalf("Distance between image is too close : %v", dist)
+	}
 }
 
-func testData(t *testing.T) imgidx.Index {
-	var e embedders.ImageEmbedder = embedders.NewAspectRatioEmbedder()
+// In this test we try to find match for the image that differs form original significantly
+// (aspect ratio, colors, format etc.).
+func TestIndexWeekMatch(t *testing.T) {
+	haystack := createPockemonIndex(t)
+	needlePath := "testdata/distorted_abomasnow.jpg"
+	expectedImg := "abomasnow.png"
+	needle, err := loadImage(needlePath)
+	if err != nil {
+		t.Fatalf("failed to load image %v : %v", needlePath, err)
+	}
+
+	// I don't care about the distance.
+	// The main point, is that the propper image found
+	got, _, err := haystack.Nearest(needle)
+	if err != nil {
+		t.Fatalf("Failed to find nearest image, : %v", err)
+	}
+	if got != expectedImg {
+		t.Fatalf("Failed to find nearest image, got '%v', want '1:1 image'", got)
+	}
+
+}
+
+func generateTestImages(t *testing.T) imgidx.Index {
+	e := embedders.NewAspectRatioEmbedder()
 	idx, err := imgidx.NewKDTreeImageIndex(e)
 	if err != nil {
 		t.Fatalf("Failed to create idx, : %v", err)
@@ -35,11 +132,12 @@ func testData(t *testing.T) imgidx.Index {
 	if idx == nil {
 		t.Fatalf("Failed to create idx, NewKDTreeImageIndex() returned nil, nil")
 	}
+
 	seed := map[string]image.Image{
-		"1:1 image":                 img(100, 100),
-		"almost 1:1 vertical image": img(99, 101),
-		"2:1 image":                 img(200, 100),
-		"1:2 image":                 img(100, 200),
+		"1:1 image":                 image.NewRGBA(image.Rect(0, 0, 100, 100)),
+		"almost 1:1 vertical image": image.NewRGBA(image.Rect(0, 0, 99, 101)),
+		"2:1 image":                 image.NewRGBA(image.Rect(0, 0, 200, 100)),
+		"1:2 image":                 image.NewRGBA(image.Rect(0, 0, 100, 200)),
 	}
 	for name, value := range seed {
 		_, err := idx.AddImage(value, name)
@@ -50,7 +148,7 @@ func testData(t *testing.T) imgidx.Index {
 	return idx
 }
 
-func Test_kDTreeIndex_Remove(t *testing.T) {
+func TestIndexRemove(t *testing.T) {
 	needle := image.NewRGBA(image.Rect(0, 0, 101, 99))
 
 	tests := []struct {
@@ -84,7 +182,7 @@ func Test_kDTreeIndex_Remove(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			idx := testData(t)
+			idx := generateTestImages(t)
 
 			got, err := idx.Remove(tt.f)
 			if (err != nil) != tt.wantErr {
@@ -101,5 +199,50 @@ func Test_kDTreeIndex_Remove(t *testing.T) {
 				t.Fatalf("Failed to find nearest image, got '%v', want '%v'", nearestImgGot, tt.nearestImgWant)
 			}
 		})
+	}
+}
+
+func TestIndexConcurrentWrite(t *testing.T) {
+	const iterations = 1000
+	deletionResults := make(chan int, iterations)
+	extraImage := image.NewRGBA(image.Rect(0, 0, 100, 100))
+	removeExtraImages := func(vec embedders.Vector, attrs interface{}) bool {
+		return attrs == "extra"
+	}
+	idx := createPockemonIndex(t)
+	originalIdxLen := idx.GetCount()
+	var wg sync.WaitGroup
+	wg.Add(iterations * 2)
+	for i := 0; i < iterations; i++ {
+		go func() {
+			defer wg.Done()
+			_, err := idx.AddImage(extraImage, "extra")
+			if err != nil {
+				panic("Failed to add extra image to index")
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			deleted, err := idx.Remove(removeExtraImages)
+			if err != nil {
+				panic("Failed to remove extra images from index")
+			}
+			deletionResults <- deleted
+		}()
+	}
+	wg.Wait()
+	close(deletionResults)
+	deletedTotal, err := idx.Remove(removeExtraImages)
+	if err != nil {
+		t.Fatalf("Failed to remove extra images from index, : %v", err)
+	}
+	for deleted := range deletionResults {
+		deletedTotal += deleted
+	}
+	if deletedTotal != iterations {
+		t.Fatalf("%v images was expected to be removed, %v was removed in fact", iterations, deletedTotal)
+	}
+	if idx.GetCount() != originalIdxLen {
+		t.Fatalf("%v images was expected to be in index, %v in fact", originalIdxLen, idx.GetCount())
 	}
 }
