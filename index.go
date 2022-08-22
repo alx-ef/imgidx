@@ -7,6 +7,8 @@ import (
 	_ "image/gif"  // register GIF decoder
 	_ "image/jpeg" // register JPEG decoder
 	_ "image/png"  // register PNG decoder
+	"io"
+	"net/http"
 	"os"
 	"sync"
 )
@@ -162,5 +164,24 @@ func AddImageFile(idx Index, path string, attrs interface{}) (vec embedders.Vect
 	if err != nil {
 		return nil, err
 	}
+	return idx.AddImage(img, attrs)
+}
+
+func AddImageUrl(idx Index, url string, attrs interface{}) (vec embedders.Vector, err error) {
+	res, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer func(Body io.ReadCloser) {
+		closingErr := Body.Close()
+		if err != nil {
+			err = closingErr
+		}
+	}(res.Body)
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("received code %d, 200 expected", res.StatusCode)
+	}
+	img, _, err := image.Decode(res.Body)
+
 	return idx.AddImage(img, attrs)
 }

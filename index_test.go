@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"os"
 	"path"
+	"reflect"
 	"sync"
 	"testing"
 )
@@ -244,5 +245,24 @@ func TestIndexConcurrentWrite(t *testing.T) {
 	}
 	if idx.GetCount() != originalIdxLen {
 		t.Fatalf("%v images was expected to be in index, %v in fact", originalIdxLen, idx.GetCount())
+	}
+}
+
+func TestAddImageUrl(t *testing.T) {
+	imgUrl := "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/1.png"
+	imgPath := "./testdata/back_1.png"
+	idx := createPockemonIndex(t)
+	urlVec, err := imgidx.AddImageUrl(idx, imgUrl, "form url")
+	if err != nil {
+		t.Fatalf("Failed to add image from url %v : %v", imgUrl, err)
+	}
+
+	fileVec, err := imgidx.AddImageFile(idx, imgPath, "form file")
+	if err != nil {
+		t.Fatalf("Failed to add image from file %v : %v", imgPath, err)
+	}
+
+	if !reflect.DeepEqual(urlVec, fileVec) {
+		t.Fatalf("Vectors from url and file are not equal")
 	}
 }
