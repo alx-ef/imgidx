@@ -20,10 +20,10 @@ import "gonum.org/v1/gonum/spatial/kdtree"
 type Index interface {
 	// AddImage adds the image img to the index and returns its vector representation.
 	//
-	// uri is the uri of the image: "https://...", "files://.." or anything else. It's supposed to be unique.
-	// If the image with the uri is already in the index, it causes an error.
+	// URI is the URI of the image: "https://...", "files://.." or anything else. It's supposed to be unique.
+	// If the image with the URI is already in the index, it causes an error.
 	//
-	// attrs is supposed to contain image's attributes, such as URL, UUID, id, type, etc.
+	// Attributes is supposed to contain image's attributes, such as URL, UUID, id, type, etc.
 	// It's stored by the index as is and returned by the Nearest method.
 	//
 	// The Vector is supposed to be stored in persistent storage, so the Index state is possible to restore
@@ -35,7 +35,7 @@ type Index interface {
 	//
 	// The vec is supposed to be a Vector returned by Index.AddImage().
 	//
-	// The uri and attrs are the same as in AddImage().
+	// The URI and Attributes are the same as in AddImage().
 	//
 	// Vector length must match the index's number of dimensions
 	AddVector(vec embedders.Vector, uri string, attrs interface{}) error
@@ -52,7 +52,7 @@ type Index interface {
 	// Remove returns the number removed of images ( >=0 )
 	//
 	// This function is implemented this way, not like Remove(id) for two reasons:
-	// - Images in the index have no unique identifier. It's possible to have one in attrs, but the index doesn't work with it.
+	// - Images in the index have no unique identifier. It's possible to have one in Attributes, but the index doesn't work with it.
 	// - The underlining kdtree implementation doesn't support removal, so we have to rebuild the index, and it's better to do it in one go.
 	Remove(func(vec embedders.Vector, uri string, attrs interface{}) bool) (int, error)
 
@@ -73,7 +73,7 @@ func (idx *kDTreeIndex) AddVector(vec embedders.Vector, uri string, attrs interf
 	}
 	idx.lock.Lock()
 	defer idx.lock.Unlock()
-	idx.tree.Insert(embed{kdtree.Point(vec), uri, attrs}, false)
+	idx.tree.Insert(ImgEmbed{URI: uri, Vector: kdtree.Point(vec), Attributes: attrs}, false)
 	return nil
 }
 
@@ -84,12 +84,12 @@ func (idx *kDTreeIndex) Nearest(img image.Image) (uri string, attrs interface{},
 	}
 	idx.lock.RLock()
 	defer idx.lock.RUnlock()
-	got, dist := idx.tree.Nearest(embed{Point: kdtree.Point(vec)})
-	embd, ok := got.(embed)
+	got, dist := idx.tree.Nearest(ImgEmbed{Vector: kdtree.Point(vec)})
+	embd, ok := got.(ImgEmbed)
 	if !ok {
-		return "", nil, 0, fmt.Errorf("got %T, expected embed", got)
+		return "", nil, 0, fmt.Errorf("got %T, expected ImgEmbed", got)
 	}
-	return embd.uri, embd.attrs, dist, nil
+	return embd.URI, embd.Attributes, dist, nil
 }
 
 func (idx *kDTreeIndex) Remove(f func(vec embedders.Vector, uri string, attrs interface{}) bool) (int, error) {
@@ -100,12 +100,12 @@ func (idx *kDTreeIndex) Remove(f func(vec embedders.Vector, uri string, attrs in
 	idx.lock.Lock()
 	defer idx.lock.Unlock()
 	idx.tree.Do(func(c kdtree.Comparable, _ *kdtree.Bounding, _ int) bool {
-		embd, ok := c.(embed)
+		embd, ok := c.(ImgEmbed)
 		if !ok {
-			err = fmt.Errorf("KDTree contained %T, expected embed only", c)
+			err = fmt.Errorf("KDTree contained %T, expected ImgEmbed only", c)
 			return true
 		}
-		if f(embedders.Vector(embd.Point), embd.uri, embd.attrs) {
+		if f(embedders.Vector(embd.Vector), embd.URI, embd.Attributes) {
 			removeCnt += 1
 		} else {
 			keep = append(keep, embd)
@@ -122,7 +122,7 @@ func (idx *kDTreeIndex) Remove(f func(vec embedders.Vector, uri string, attrs in
 }
 
 func (idx *kDTreeIndex) AddImage(img image.Image, uri string, attrs interface{}) (embedders.Vector, error) {
-	//log.Println("Adding image", uri)
+	//log.Println("Adding image", URI)
 	vec, err := idx.embedder.Img2Vec(img)
 	if err != nil {
 		return nil, err

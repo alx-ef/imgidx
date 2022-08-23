@@ -2,30 +2,33 @@ package imgidx
 
 import "gonum.org/v1/gonum/spatial/kdtree"
 
-type embed struct {
-	kdtree.Point
-	uri   string
-	attrs interface{}
+type ImgEmbed struct {
+	URI        string       `gorm:"primaryKey,serializer:json"`
+	Vector     kdtree.Point `gorm:"serializer:json"`
+	Attributes interface{}  `gorm:"serializer:json"`
+	_          struct{}     `gorm:"-"`
 }
 
-func (p embed) Compare(c kdtree.Comparable, d kdtree.Dim) float64 {
-	return p.Point.Compare(c.(embed).Point, d)
+func (embd ImgEmbed) Compare(c kdtree.Comparable, d kdtree.Dim) float64 {
+	return embd.Vector.Compare(c.(ImgEmbed).Vector, d)
 }
 
 // Dims returns the number of dimensions described by the receiver.
-func (p embed) Dims() int { return len(p.Point) }
+func (embd ImgEmbed) Dims() int { return len(embd.Vector) }
 
 // Distance returns the squared Euclidean distance between c and the receiver. The
 // concrete type of c must be Point.
-func (p embed) Distance(c kdtree.Comparable) float64 { return p.Point.Distance(c.(embed).Point) }
+func (embd ImgEmbed) Distance(c kdtree.Comparable) float64 {
+	return embd.Vector.Distance(c.(ImgEmbed).Vector)
+}
 
 // images is a collection of the image type that satisfies kdtree.Interface.
-type embeds []embed
+type embeds []ImgEmbed
 
-func (p embeds) Index(i int) kdtree.Comparable         { return p[i] }
-func (p embeds) Len() int                              { return len(p) }
-func (p embeds) Pivot(d kdtree.Dim) int                { return plane{d, p}.Pivot() }
-func (p embeds) Slice(start, end int) kdtree.Interface { return p[start:end] }
+func (e embeds) Index(i int) kdtree.Comparable         { return e[i] }
+func (e embeds) Len() int                              { return len(e) }
+func (e embeds) Pivot(d kdtree.Dim) int                { return plane{d, e}.Pivot() }
+func (e embeds) Slice(start, end int) kdtree.Interface { return e[start:end] }
 
 // plane is required to help places.
 type plane struct {
@@ -33,7 +36,7 @@ type plane struct {
 	embeds
 }
 
-func (p plane) Less(i, j int) bool                     { return p.embeds[i].Point[p.Dim] < p.embeds[j].Point[p.Dim] }
+func (p plane) Less(i, j int) bool                     { return p.embeds[i].Vector[p.Dim] < p.embeds[j].Vector[p.Dim] }
 func (p plane) Pivot() int                             { return kdtree.Partition(p, kdtree.MedianOfMedians(p)) }
 func (p plane) Slice(start, end int) kdtree.SortSlicer { p.embeds = p.embeds[start:end]; return p }
 func (p plane) Swap(i, j int)                          { p.embeds[i], p.embeds[j] = p.embeds[j], p.embeds[i] }
