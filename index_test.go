@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/alef-ru/imgidx"
 	"github.com/alef-ru/imgidx/embedders"
+	"github.com/stretchr/testify/assert"
 	"image"
 	"image/color"
 	"log"
@@ -303,4 +304,29 @@ func runTestImgHttpServer() *httptest.Server {
 			http.ServeFile(w, r, imgPath)
 		}))
 	return server
+}
+
+func TestUniqueUris(t *testing.T) {
+	testImgPath := "testdata/pokemon/abra.png"
+	idx := newKD3Index(t)
+	addPockemonsToIndex(t, idx)
+	cnt := idx.GetCount()
+
+	vec, err := imgidx.AddImageFile(idx, testImgPath, "already exists")
+	assert.NotNil(t, err, "Error expected")
+	assert.Nil(t, vec, "The result was expected to be nil")
+	assert.Equal(t, cnt, idx.GetCount(), "The index size was expected to remain the same")
+
+	deleted, err := idx.Remove(func(vec embedders.Vector, uri string, attrs interface{}) bool {
+		return strings.HasSuffix(uri, testImgPath)
+	})
+	assert.Nil(t, err, "Failed to delete image %v", testImgPath)
+	assert.Equal(t, cnt-1, idx.GetCount(), "The index size was expected to decrease")
+	assert.Equal(t, deleted, 1, "Exactly one image was expected to be deleted")
+
+	vec, err = imgidx.AddImageFile(idx, "testdata/pokemon/abra.png", "already exists")
+	assert.Nil(t, err, "Error was not expected")
+	assert.NotNil(t, vec, "The result was not expected to be nil")
+	assert.Equal(t, cnt, idx.GetCount(), "The index size was expected to remain the same")
+
 }

@@ -65,6 +65,7 @@ type kDTreeIndex struct {
 	embedder embedders.ImageEmbedder
 	dims     int
 	lock     sync.RWMutex
+	uris     map[string]bool
 }
 
 func (idx *kDTreeIndex) AddVector(vec embedders.Vector, uri string, attrs interface{}) error {
@@ -73,7 +74,11 @@ func (idx *kDTreeIndex) AddVector(vec embedders.Vector, uri string, attrs interf
 	}
 	idx.lock.Lock()
 	defer idx.lock.Unlock()
+	if idx.uris[uri] {
+		return fmt.Errorf("image with URI %s is already in the index", uri)
+	}
 	idx.tree.Insert(ImgEmbed{URI: uri, Vector: kdtree.Point(vec), Attributes: attrs}, false)
+	idx.uris[uri] = true
 	return nil
 }
 
@@ -117,6 +122,10 @@ func (idx *kDTreeIndex) Remove(f func(vec embedders.Vector, uri string, attrs in
 	}
 	if removeCnt != 0 {
 		idx.tree = kdtree.New(keep, false)
+		idx.uris = make(map[string]bool, len(keep))
+		for _, embd := range keep {
+			idx.uris[embd.URI] = true
+		}
 	}
 	return removeCnt, nil
 }
@@ -151,6 +160,7 @@ func NewKDTreeImageIndex(embedder embedders.ImageEmbedder) (Index, error) {
 	}
 	index.embedder = embedder
 	index.tree = kdtree.New(make(embeds, 0), false)
+	index.uris = make(map[string]bool)
 	return &index, nil
 }
 
