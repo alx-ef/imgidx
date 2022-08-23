@@ -5,6 +5,8 @@ import (
 	"github.com/alef-ru/imgidx/embedders"
 	"image"
 	"image/color"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path"
 	"reflect"
@@ -249,8 +251,11 @@ func TestIndexConcurrentWrite(t *testing.T) {
 }
 
 func TestAddImageUrl(t *testing.T) {
-	imgUrl := "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/back/1.png"
-	imgPath := "./testdata/back_1.png"
+	server := runTestImgHttpServer()
+	defer server.Close()
+
+	imgUrl := server.URL + "/abra.png"
+	imgPath := "./testdata/pokemon/abra.png"
 	idx := createPockemonIndex(t)
 	urlVec, err := imgidx.AddImageUrl(idx, imgUrl, "form url")
 	if err != nil {
@@ -265,4 +270,13 @@ func TestAddImageUrl(t *testing.T) {
 	if !reflect.DeepEqual(urlVec, fileVec) {
 		t.Fatalf("Vectors from url and file are not equal")
 	}
+}
+
+func runTestImgHttpServer() *httptest.Server {
+	server := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			imgPath := path.Join("testdata/pokemon/", r.URL.Path[1:])
+			http.ServeFile(w, r, imgPath)
+		}))
+	return server
 }
