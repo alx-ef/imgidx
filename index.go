@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 )
 import "gonum.org/v1/gonum/spatial/kdtree"
@@ -19,29 +20,31 @@ import "gonum.org/v1/gonum/spatial/kdtree"
 type Index interface {
 	// AddImage adds the image img to the index and returns its vector representation.
 	//
+	// uri is the uri of the image: "https://...", "files://.." or anything else. It's supposed to be unique.
+	// If the image with the uri is already in the index, it causes an error.
+	//
 	// attrs is supposed to contain image's attributes, such as URL, UUID, id, type, etc.
 	// It's stored by the index as is and returned by the Nearest method.
 	//
 	// The Vector is supposed to be stored in persistent storage, so the Index state is possible to restore
 	// without reindexing all the images.
-	AddImage(img image.Image, attrs interface{}) (embedders.Vector, error)
+	AddImage(img image.Image, uri string, attrs interface{}) (embedders.Vector, error)
 
 	// AddVector adds a pre-calculated vector to the index.
 	// This method is supposed to be used when restoring the index from a persistent storage.
 	//
 	// The vec is supposed to be a Vector returned by Index.AddImage().
 	//
-	// attrs is supposed to contain image's attributes, such as URL, UUID, id, type, etc.
-	// It's stored by the index as-is and returned by the Nearest method.
+	// The uri and attrs are the same as in AddImage().
 	//
 	// Vector length must match the index's number of dimensions
-	AddVector(vec embedders.Vector, attrs interface{}) error
+	AddVector(vec embedders.Vector, uri string, attrs interface{}) error
 
 	// Nearest embeds the image img into a vector searches for the nearest neighbor in the index.
 	// It returns the found image's attributes as-is and the distance between the given and found images.
 	// Image will always be found unless the index is empty, regardless on the distances.
 	// It's up to caller to consider it as "match" or "not found" depending on the distance between images.
-	Nearest(img image.Image) (attrs interface{}, distance float64, err error)
+	Nearest(img image.Image) (uri string, attrs interface{}, distance float64, err error)
 
 	// Remove checks each image representation with the passed function,
 	// and removes the image if the function returns true.
@@ -51,7 +54,7 @@ type Index interface {
 	// This function is implemented this way, not like Remove(id) for two reasons:
 	// - Images in the index have no unique identifier. It's possible to have one in attrs, but the index doesn't work with it.
 	// - The underlining kdtree implementation doesn't support removal, so we have to rebuild the index, and it's better to do it in one go.
-	Remove(func(vec embedders.Vector, attrs interface{}) bool) (int, error)
+	Remove(func(vec embedders.Vector, uri string, attrs interface{}) bool) (int, error)
 
 	// GetCount returns the number of images in the index.
 	GetCount() int
@@ -64,32 +67,32 @@ type kDTreeIndex struct {
 	lock     sync.RWMutex
 }
 
-func (idx *kDTreeIndex) AddVector(vec embedders.Vector, attrs interface{}) error {
+func (idx *kDTreeIndex) AddVector(vec embedders.Vector, uri string, attrs interface{}) error {
 	if len(vec) != idx.dims {
 		return fmt.Errorf("vector has %d dimensions. Expected %d", len(vec), idx.dims)
 	}
 	idx.lock.Lock()
 	defer idx.lock.Unlock()
-	idx.tree.Insert(embed{kdtree.Point(vec), attrs}, false)
+	idx.tree.Insert(embed{kdtree.Point(vec), uri, attrs}, false)
 	return nil
 }
 
-func (idx *kDTreeIndex) Nearest(img image.Image) (attrs interface{}, distance float64, err error) {
+func (idx *kDTreeIndex) Nearest(img image.Image) (uri string, attrs interface{}, distance float64, err error) {
 	vec, err := idx.embedder.Img2Vec(img)
 	if err != nil {
-		return nil, 0, err
+		return "", nil, 0, err
 	}
 	idx.lock.RLock()
 	defer idx.lock.RUnlock()
-	got, dist := idx.tree.Nearest(embed{kdtree.Point(vec), nil})
+	got, dist := idx.tree.Nearest(embed{Point: kdtree.Point(vec)})
 	embd, ok := got.(embed)
 	if !ok {
-		return nil, 0, fmt.Errorf("got %T, expected embed", got)
+		return "", nil, 0, fmt.Errorf("got %T, expected embed", got)
 	}
-	return embd.attrs, dist, nil
+	return embd.uri, embd.attrs, dist, nil
 }
 
-func (idx *kDTreeIndex) Remove(f func(vec embedders.Vector, attrs interface{}) bool) (int, error) {
+func (idx *kDTreeIndex) Remove(f func(vec embedders.Vector, uri string, attrs interface{}) bool) (int, error) {
 	//FixMe: it seems inefficient to rebuild the index every time, but it's the easiest way to implement Remove
 	keep := make(embeds, 0)
 	var removeCnt int
@@ -102,7 +105,7 @@ func (idx *kDTreeIndex) Remove(f func(vec embedders.Vector, attrs interface{}) b
 			err = fmt.Errorf("KDTree contained %T, expected embed only", c)
 			return true
 		}
-		if f(embedders.Vector(embd.Point), embd.attrs) {
+		if f(embedders.Vector(embd.Point), embd.uri, embd.attrs) {
 			removeCnt += 1
 		} else {
 			keep = append(keep, embd)
@@ -112,16 +115,19 @@ func (idx *kDTreeIndex) Remove(f func(vec embedders.Vector, attrs interface{}) b
 	if err != nil {
 		return 0, err
 	}
-	idx.tree = kdtree.New(keep, false)
+	if removeCnt != 0 {
+		idx.tree = kdtree.New(keep, false)
+	}
 	return removeCnt, nil
 }
 
-func (idx *kDTreeIndex) AddImage(img image.Image, attrs interface{}) (embedders.Vector, error) {
+func (idx *kDTreeIndex) AddImage(img image.Image, uri string, attrs interface{}) (embedders.Vector, error) {
+	//log.Println("Adding image", uri)
 	vec, err := idx.embedder.Img2Vec(img)
 	if err != nil {
 		return nil, err
 	}
-	err = idx.AddVector(vec, attrs)
+	err = idx.AddVector(vec, uri, attrs)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +135,7 @@ func (idx *kDTreeIndex) AddImage(img image.Image, attrs interface{}) (embedders.
 }
 
 func (idx *kDTreeIndex) GetCount() int {
-	idx.lock.RLock() //FixMe: I'm not if lock is needed here
+	idx.lock.RLock()
 	defer idx.lock.RUnlock()
 	return idx.tree.Count
 }
@@ -164,7 +170,12 @@ func AddImageFile(idx Index, path string, attrs interface{}) (vec embedders.Vect
 	if err != nil {
 		return nil, err
 	}
-	return idx.AddImage(img, attrs)
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current working directory: %w", err)
+	}
+	uri := "file://" + filepath.Join(wd, path)
+	return idx.AddImage(img, uri, attrs)
 }
 
 func AddImageUrl(idx Index, url string, attrs interface{}) (vec embedders.Vector, err error) {
@@ -182,6 +193,5 @@ func AddImageUrl(idx Index, url string, attrs interface{}) (vec embedders.Vector
 		return nil, fmt.Errorf("received code %d, 200 expected", res.StatusCode)
 	}
 	img, _, err := image.Decode(res.Body)
-
-	return idx.AddImage(img, attrs)
+	return idx.AddImage(img, url, attrs)
 }

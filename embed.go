@@ -4,6 +4,7 @@ import "gonum.org/v1/gonum/spatial/kdtree"
 
 type embed struct {
 	kdtree.Point
+	uri   string
 	attrs interface{}
 }
 
