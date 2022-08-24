@@ -1,4 +1,4 @@
-package imgidx
+package index
 
 import (
 	"gonum.org/v1/gonum/spatial/kdtree"

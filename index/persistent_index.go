@@ -1,4 +1,4 @@
-package imgidx
+package index
 
 import (
 	"fmt"
