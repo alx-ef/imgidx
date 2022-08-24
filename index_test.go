@@ -101,13 +101,12 @@ func TestIndexNotMatch(t *testing.T) {
 	}
 
 	// Remove matched image to insure, that match is impossible
-	cnt, err := haystack.Remove(
+	removed, err := haystack.Remove(
 		func(vec embedders.Vector, uri string, attrs interface{}) bool {
 			return strings.HasSuffix(uri, expectedImg)
 		})
-	if err != nil || cnt != 1 {
-		t.Fatalf("Failed to remove image %v : %v", expectedImg, err)
-	}
+	assert.NoError(t, err, "Failed to remove image %v : %v", expectedImg)
+	assert.Equal(t, 1, len(removed), "Exactly one image is expected to be removed")
 	_, _, dist, err := haystack.Nearest(needle)
 	if err != nil {
 		t.Fatalf("Failed to find nearest image, : %v", err)
@@ -173,14 +172,14 @@ func TestIndexRemove(t *testing.T) {
 	tests := []struct {
 		name           string
 		f              func(vec embedders.Vector, uri string, attrs interface{}) bool
-		want           int
+		want           []string
 		nearestImgWant string
 		wantErr        bool
 	}{
 		{
 			"delete nothing",
 			func(vec embedders.Vector, uri string, attrs interface{}) bool { return false },
-			0,
+			nil,
 			"1:1 image",
 			false,
 		}, {
@@ -188,13 +187,13 @@ func TestIndexRemove(t *testing.T) {
 			func(vec embedders.Vector, uri string, attrs interface{}) bool {
 				return vec[0] == 0
 			},
-			1,
+			[]string{"1:1 image"},
 			"almost 1:1 vertical image",
 			false,
 		}, {
 			"delete square by uri",
 			func(vec embedders.Vector, uri string, attrs interface{}) bool { return uri == "1:1 image" },
-			1,
+			[]string{"1:1 image"},
 			"almost 1:1 vertical image",
 			false,
 		},
@@ -207,9 +206,7 @@ func TestIndexRemove(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("kDTreeIndex.Remove() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			if got != tt.want {
-				t.Fatalf("kDTreeIndex.Remove() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 			nearestImgGot, _, _, err := idx.Nearest(needle)
 			if err != nil {
 				t.Fatalf("Failed to find nearest image, : %v", err)
@@ -223,7 +220,7 @@ func TestIndexRemove(t *testing.T) {
 
 func TestIndexConcurrentWrite(t *testing.T) {
 	const iterations = 100
-	deletionResults := make(chan int, iterations)
+	deletionResults := make(chan []string, iterations)
 	extraImage := image.NewRGBA(image.Rect(0, 0, 100, 100))
 	removeExtraImages := func(vec embedders.Vector, uri string, attrs interface{}) bool {
 		return attrs == "extra"
@@ -254,18 +251,19 @@ func TestIndexConcurrentWrite(t *testing.T) {
 				panic("Failed to remove extra images from index")
 			}
 			deletionResults <- deleted
-			log.Printf("Done remove job %d: %d images deleted, index size: %d", i, deleted, idx.GetCount())
+			log.Printf("Done remove job %d: %d images deleted, index size: %d", i, len(deleted), idx.GetCount())
 		}(i)
 	}
 	wg.Wait()
 	close(deletionResults)
-	deletedTotal, err := idx.Remove(removeExtraImages)
+	removed, err := idx.Remove(removeExtraImages)
+	deletedTotal := len(removed)
 	log.Printf("%d images deleted", deletedTotal)
 	if err != nil {
 		t.Fatalf("Failed to remove extra images from index, : %v", err)
 	}
-	for deleted := range deletionResults {
-		deletedTotal += deleted
+	for removed := range deletionResults {
+		deletedTotal += len(removed)
 	}
 	if deletedTotal != iterations {
 		t.Fatalf("%v images was expected to be removed, %v was removed in fact", iterations, deletedTotal)
@@ -317,12 +315,12 @@ func TestUniqueUris(t *testing.T) {
 	assert.Nil(t, vec, "The result was expected to be nil")
 	assert.Equal(t, cnt, idx.GetCount(), "The index size was expected to remain the same")
 
-	deleted, err := idx.Remove(func(vec embedders.Vector, uri string, attrs interface{}) bool {
+	removed, err := idx.Remove(func(vec embedders.Vector, uri string, attrs interface{}) bool {
 		return strings.HasSuffix(uri, testImgPath)
 	})
 	assert.Nil(t, err, "Failed to delete image %v", testImgPath)
 	assert.Equal(t, cnt-1, idx.GetCount(), "The index size was expected to decrease")
-	assert.Equal(t, deleted, 1, "Exactly one image was expected to be deleted")
+	assert.Equal(t, len(removed), 1, "Exactly one image was expected to be removed")
 
 	vec, err = imgidx.AddImageFile(idx, "testdata/pokemon/abra.png", "already exists")
 	assert.Nil(t, err, "Error was not expected")

@@ -49,12 +49,12 @@ type Index interface {
 	// Remove checks each image representation with the passed function,
 	// and removes the image if the function returns true.
 	//
-	// Remove returns the number removed of images ( >=0 )
+	// Remove returns URIs of removed of images.
 	//
 	// This function is implemented this way, not like Remove(id) for two reasons:
 	// - Images in the index have no unique identifier. It's possible to have one in Attributes, but the index doesn't work with it.
 	// - The underlining kdtree implementation doesn't support removal, so we have to rebuild the index, and it's better to do it in one go.
-	Remove(func(vec embedders.Vector, uri string, attrs interface{}) bool) (int, error)
+	Remove(func(vec embedders.Vector, uri string, attrs interface{}) bool) (removed []string, err error)
 
 	// GetCount returns the number of images in the index.
 	GetCount() int
@@ -97,10 +97,10 @@ func (idx *kDTreeIndex) Nearest(img image.Image) (uri string, attrs interface{},
 	return embd.URI, embd.Attributes, dist, nil
 }
 
-func (idx *kDTreeIndex) Remove(f func(vec embedders.Vector, uri string, attrs interface{}) bool) (int, error) {
+func (idx *kDTreeIndex) Remove(f func(vec embedders.Vector, uri string, attrs interface{}) bool) ([]string, error) {
 	//FixMe: it seems inefficient to rebuild the index every time, but it's the easiest way to implement Remove
 	keep := make(embeds, 0)
-	var removeCnt int
+	var remove []string
 	var err error
 	idx.lock.Lock()
 	defer idx.lock.Unlock()
@@ -111,23 +111,23 @@ func (idx *kDTreeIndex) Remove(f func(vec embedders.Vector, uri string, attrs in
 			return true
 		}
 		if f(embedders.Vector(embd.Vector), embd.URI, embd.Attributes) {
-			removeCnt += 1
+			remove = append(remove, embd.URI)
 		} else {
 			keep = append(keep, embd)
 		}
 		return false
 	})
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	if removeCnt != 0 {
+	if len(remove) != 0 {
 		idx.tree = kdtree.New(keep, false)
 		idx.uris = make(map[string]bool, len(keep))
 		for _, embd := range keep {
 			idx.uris[embd.URI] = true
 		}
 	}
-	return removeCnt, nil
+	return remove, nil
 }
 
 func (idx *kDTreeIndex) AddImage(img image.Image, uri string, attrs interface{}) (embedders.Vector, error) {
