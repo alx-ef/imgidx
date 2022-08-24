@@ -188,7 +188,7 @@ func AddImageFile(idx Index, path string, attrs interface{}) (vec embedders.Vect
 	return idx.AddImage(img, uri, attrs)
 }
 
-func AddImageUrl(idx Index, url string, attrs interface{}) (vec embedders.Vector, err error) {
+func AddImageUrl(idx Index, url string, attrs interface{}) (embedders.Vector, error) {
 	res, err := http.Get(url)
 	if err != nil {
 		return nil, err
