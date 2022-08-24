@@ -1,9 +1,13 @@
 package imgidx
 
-import "gonum.org/v1/gonum/spatial/kdtree"
+import (
+	"gonum.org/v1/gonum/spatial/kdtree"
+	"gorm.io/gorm"
+)
 
 type ImgEmbed struct {
-	URI        string       `gorm:"primaryKey,serializer:json"`
+	gorm.Model
+	URI        string       `gorm:"unique"`
 	Vector     kdtree.Point `gorm:"serializer:json"`
 	Attributes interface{}  `gorm:"serializer:json"`
 	_          struct{}     `gorm:"-"`
