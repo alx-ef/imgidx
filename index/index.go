@@ -203,5 +203,8 @@ func AddImageUrl(idx Index, url string, attrs interface{}) (embedders.Vector, er
 		return nil, fmt.Errorf("received code %d, 200 expected", res.StatusCode)
 	}
 	img, _, err := image.Decode(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %v, %w", url, err)
+	}
 	return idx.AddImage(img, url, attrs)
 }
