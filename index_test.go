@@ -19,7 +19,7 @@ import (
 	"testing"
 )
 
-func addPockemonsToIndex(t *testing.T, idx imgidx.Index) {
+func addPokemonsToIndex(t *testing.T, idx imgidx.Index) {
 	imgDirPath := "./testdata/pokemon"
 	files, err := os.ReadDir(imgDirPath)
 	if err != nil {
@@ -33,13 +33,17 @@ func addPockemonsToIndex(t *testing.T, idx imgidx.Index) {
 	}
 }
 
-func newKD3Index(t *testing.T) imgidx.Index {
-	embedder := embedders.Composition([]embedders.ImageEmbedder{
+func newEmbedder() embedders.ImageEmbedder {
+	return embedders.Composition([]embedders.ImageEmbedder{
 		embedders.NewAspectRatioEmbedder(),
 		embedders.NewColorDispersionEmbedder(),
 		embedders.NewLowResolutionEmbedder(8, 8),
 	})
-	idx, err := imgidx.NewKDTreeImageIndex(embedder)
+}
+
+func newKD3Index(t *testing.T) imgidx.Index {
+
+	idx, err := imgidx.NewKDTreeImageIndex(newEmbedder())
 	if err != nil {
 		t.Fatalf("failed to create index : %v", err)
 	}
@@ -68,7 +72,7 @@ func loadImage(filePath string) (image.Image, error) {
 // Try to find image that is converted from PNG to JPEG and compressed
 func TestIndexMatch(t *testing.T) {
 	haystack := newKD3Index(t)
-	addPockemonsToIndex(t, haystack)
+	addPokemonsToIndex(t, haystack)
 	needlePath := "testdata/compressed_abomasnow.jpg"
 	expectedImg := "abomasnow.png"
 	needle, err := loadImage(needlePath)
@@ -92,7 +96,7 @@ func TestIndexMatch(t *testing.T) {
 // I don't care about the image found. The main point, is that the distance is big.
 func TestIndexNotMatch(t *testing.T) {
 	haystack := newKD3Index(t)
-	addPockemonsToIndex(t, haystack)
+	addPokemonsToIndex(t, haystack)
 	needlePath := "testdata/compressed_abomasnow.jpg"
 	expectedImg := "abomasnow.png"
 	needle, err := loadImage(needlePath)
@@ -120,7 +124,7 @@ func TestIndexNotMatch(t *testing.T) {
 // (aspect ratio, colors, format etc.).
 func TestIndexWeekMatch(t *testing.T) {
 	haystack := newKD3Index(t)
-	addPockemonsToIndex(t, haystack)
+	addPokemonsToIndex(t, haystack)
 	needlePath := "testdata/distorted_abomasnow.jpg"
 	expectedImg := "abomasnow.png"
 	needle, err := loadImage(needlePath)
@@ -226,7 +230,7 @@ func TestIndexConcurrentWrite(t *testing.T) {
 		return attrs == "extra"
 	}
 	idx := newKD3Index(t)
-	addPockemonsToIndex(t, idx)
+	addPokemonsToIndex(t, idx)
 	originalIdxLen := idx.GetCount()
 	var wg sync.WaitGroup
 	wg.Add(iterations * 2)
@@ -307,7 +311,7 @@ func runTestImgHttpServer() *httptest.Server {
 func TestUniqueUris(t *testing.T) {
 	testImgPath := "testdata/pokemon/abra.png"
 	idx := newKD3Index(t)
-	addPockemonsToIndex(t, idx)
+	addPokemonsToIndex(t, idx)
 	cnt := idx.GetCount()
 
 	vec, err := imgidx.AddImageFile(idx, testImgPath, "already exists")
