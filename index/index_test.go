@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"image"
 	"image/color"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -238,31 +237,26 @@ func TestIndexConcurrentWrite(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			uri := fmt.Sprintf("files://./image_%d", i)
-			log.Printf("Start adding job %d, index size: %d", i, idx.GetCount())
 			_, err := idx.AddImage(extraImage, uri, "extra")
 			if err != nil {
 				panic("Failed to add extra image to index")
 			}
-			log.Printf("Done adding job %d, index size: %d", i, idx.GetCount())
 		}(i)
 	}
 	for i := 0; i < iterations; i++ {
 		go func(i int) {
 			defer wg.Done()
-			log.Printf("Start remove job %d index size: %d", i, idx.GetCount())
 			deleted, err := idx.Remove(removeExtraImages)
 			if err != nil {
 				panic("Failed to remove extra images from index")
 			}
 			deletionResults <- deleted
-			log.Printf("Done remove job %d: %d images deleted, index size: %d", i, len(deleted), idx.GetCount())
 		}(i)
 	}
 	wg.Wait()
 	close(deletionResults)
 	removed, err := idx.Remove(removeExtraImages)
 	deletedTotal := len(removed)
-	log.Printf("%d images deleted", deletedTotal)
 	if err != nil {
 		t.Fatalf("Failed to remove extra images from index, : %v", err)
 	}
