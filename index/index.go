@@ -188,7 +188,7 @@ func AddImageFile(idx Index, path string, attrs interface{}) (vec embedders.Vect
 	return idx.AddImage(img, uri, attrs)
 }
 
-func AddImageUrl(idx Index, url string, attrs interface{}) (embedders.Vector, error) {
+func downloadImage(url string) (image.Image, error) {
 	res, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -203,8 +203,21 @@ func AddImageUrl(idx Index, url string, attrs interface{}) (embedders.Vector, er
 		return nil, fmt.Errorf("received code %d, 200 expected", res.StatusCode)
 	}
 	img, _, err := image.Decode(res.Body)
+	return img, nil
+}
+
+func AddImageUrl(idx Index, url string, attrs interface{}) (embedders.Vector, error) {
+	img, err := downloadImage(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse %v, %w", url, err)
+		return nil, fmt.Errorf("failed to get %v, %w", url, err)
 	}
 	return idx.AddImage(img, url, attrs)
+}
+
+func NearestByURL(idx Index, url string) (uri string, attrs interface{}, distance float64, err error) {
+	img, err := downloadImage(url)
+	if err != nil {
+		return "", nil, -1, fmt.Errorf("failed to get %v, %w", url, err)
+	}
+	return idx.Nearest(img)
 }
