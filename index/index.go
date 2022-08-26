@@ -203,6 +203,9 @@ func downloadImage(url string) (image.Image, error) {
 		return nil, fmt.Errorf("received code %d, 200 expected", res.StatusCode)
 	}
 	img, _, err := image.Decode(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode image: %w", err)
+	}
 	return img, nil
 }
 
