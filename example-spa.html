@@ -22,7 +22,7 @@
                     }
                 }
             };
-            const data = `{"url": "${imgUrl}" , "attrs": ${attrs}}`;
+            const data = `{"url": "${imgUrl}" , "attrs": ${attrs ? attrs : '"no additional info specified"'}}`;
             xhr.send(data);
         }
         function findSimilarImg(how) {
