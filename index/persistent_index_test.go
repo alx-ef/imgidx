@@ -1,8 +1,8 @@
-package imgidx_test
+package index_test
 
 import (
-	"github.com/alef-ru/imgidx"
 	"github.com/alef-ru/imgidx/embedders"
+	"github.com/alef-ru/imgidx/index"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
 	"os"
@@ -20,8 +20,8 @@ func TestPersistentIndexHappyPass(t *testing.T) {
 	// Create a new index from scratch. It is supposed to be empty
 	dialector := sqlite.Open(pathToDB)
 	kd3idx := newKD3Index(t)
-	var idx imgidx.Index
-	idx, err := imgidx.NewPersistentIndex(dialector, kd3idx)
+	var idx index.Index
+	idx, err := index.NewPersistentIndex(dialector, kd3idx)
 	assert.NoError(t, err, "Failed to create PersistentIndex from scratch")
 	assert.Equal(t, 0, idx.GetCount())
 
@@ -33,11 +33,11 @@ func TestPersistentIndexHappyPass(t *testing.T) {
 	// Create a new index with the same parameters. It is supposed to load all the data from the DB
 	dialector = sqlite.Open(pathToDB)
 	kd3idx = newKD3Index(t)
-	idx, err = imgidx.NewPersistentIndex(dialector, kd3idx)
+	idx, err = index.NewPersistentIndex(dialector, kd3idx)
 	assert.NoError(t, err, "Failed to create PersistentIndex with existing SQLite file")
 	assert.Equal(t, cnt, idx.GetCount())
 	assert.Equal(t, cnt, kd3idx.GetCount())
-	vec, err := imgidx.AddImageFile(idx, testImgPath, nil)
+	vec, err := index.AddImageFile(idx, testImgPath, nil)
 	assert.Error(t, err)
 	assert.Nil(t, vec)
 
@@ -52,7 +52,7 @@ func TestPersistentIndexHappyPass(t *testing.T) {
 	// Reload the index and check that the image was removed again
 	dialector = sqlite.Open(pathToDB)
 	kd3idx = newKD3Index(t)
-	idx, err = imgidx.NewPersistentIndex(dialector, kd3idx)
+	idx, err = index.NewPersistentIndex(dialector, kd3idx)
 	assert.NoError(t, err, "Failed to create PersistentIndex with existing SQLite file")
 	assert.Equal(t, cnt-1, idx.GetCount())
 	testImg, err := loadImage(testImgPath)
@@ -64,30 +64,30 @@ func TestPersistentIndexHappyPass(t *testing.T) {
 }
 
 func TestNewPersistentIndexInvalidDB(t *testing.T) {
-	_, err := imgidx.NewPersistentIndex(sqlite.Open("/invalid/path/to/db"), newKD3Index(t))
+	_, err := index.NewPersistentIndex(sqlite.Open("/invalid/path/to/db"), newKD3Index(t))
 	assert.ErrorContains(t, err, "no such file or directory")
 }
 
 func TestPersistentIndexDBWriteFailure(t *testing.T) {
 	const pathToDB = "tmp_err.db"
 	const testImgPath = "testdata/pokemon/absol.png"
-	idx, err := imgidx.NewPersistentIndex(sqlite.Open(pathToDB), newKD3Index(t))
+	idx, err := index.NewPersistentIndex(sqlite.Open(pathToDB), newKD3Index(t))
 	assert.NoError(t, os.Remove(pathToDB))
-	_, err = imgidx.AddImageFile(idx, testImgPath, nil)
+	_, err = index.AddImageFile(idx, testImgPath, nil)
 	assert.ErrorContains(t, err, "failed to save image embed to DB")
 }
 
 func TestPersistentIndexMigrationFailure(t *testing.T) {
-	_, err := imgidx.NewPersistentIndex(sqlite.Open("testdata/invalid.db"), newKD3Index(t))
+	_, err := index.NewPersistentIndex(sqlite.Open("testdata/invalid.db"), newKD3Index(t))
 	assert.ErrorContains(t, err, "failed to migrate db")
 }
 
-func makeTestPersistentIndex(t *testing.T) *imgidx.PersistentIndex {
+func makeTestPersistentIndex(t *testing.T) *index.PersistentIndex {
 	const pathToDB = "tmp_test.db"
 	t.Cleanup(func() {
 		_ = os.Remove(pathToDB)
 	})
-	idx, err := imgidx.NewPersistentIndex(sqlite.Open(pathToDB), newKD3Index(t))
+	idx, err := index.NewPersistentIndex(sqlite.Open(pathToDB), newKD3Index(t))
 	assert.NoError(t, err, "Failed to create PersistentIndex")
 	return idx
 }

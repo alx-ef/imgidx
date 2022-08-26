@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Find similar image</title>
+    <script>
+        function addImage() {
+            const imgUrl = document.getElementById("add_img_url").value;
+            const attrs = document.getElementById("add_img_attrs").value;
+            const resultDiv = document.getElementById("add_img_result");
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", "/images/", true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 400)) {
+                    const json = JSON.parse(xhr.responseText);
+                    resultDiv.innerHTML = json.message;
+                    if (xhr.status === 400) {
+                        resultDiv.style.color = "red";
+                    } else {
+                        resultDiv.style.color = "green";
+                    }
+                }
+            };
+            const data = `{"url": "${imgUrl}" , "attrs": ${attrs ? attrs : '"no additional info specified"'}}`;
+            xhr.send(data);
+        }
+        function findSimilarImg(how) {
+            const resultDiv = document.getElementById("find_img_result")
+            const xhr = new XMLHttpRequest();
+            let formData = null
+            if (how==='by URL'){
+                const imgUrl = document.getElementById("find_img_url").value;
+                xhr.open("GET", `/images/${encodeURIComponent(imgUrl)}`, true);
+            }else if (how==='by file'){
+                const inputFile = document.getElementById("orig_image");
+                const file = inputFile.files[0];
+                formData = new FormData();
+                formData.append("image-file", file);
+                xhr.open("POST", "/find-similar-to-file/", true);
+                //xhr.setRequestHeader("Content-Type", "multipart/form-data");
+            }else{
+                throw new Error('Unknown "how"');
+            }
+            resultDiv.innerHTML = 'Working...';
+
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 400)) {
+                    const json = JSON.parse(xhr.responseText);
+                    if (xhr.status === 400) {
+                        resultDiv.style.color = "red";
+                        resultDiv.innerHTML = json.message;
+                    } else {
+                        resultDiv.innerHTML = `
+                        <h3>The nearest image in index</h3>
+                        <img alt="the nearest image" style="width:500px;" src="${json.url}" />
+                        <h3>Distance:</h3> ${json.distance}
+                        <h3>Additional attributes</h3>
+                        <pre>${JSON.stringify(json.additional_details)}</pre>
+                        `;
+                        resultDiv.style.color = "green";
+                        resultDiv.innerHTML += "<h3>Original image</h3>"
+                        if (how==='by URL'){
+                            const imgUrl = document.getElementById("find_img_url").value;
+                            resultDiv.innerHTML += `<img alt="the original image" style="width:500px;" src="${imgUrl}" />`
+                        }else if (how==='by file'){
+                            const inputFile = document.getElementById("orig_image");
+                            const file = inputFile.files[0];
+                            const reader = new FileReader();
+                            reader.readAsDataURL(file);
+                            reader.onload = readerEvent => {
+                                resultDiv.innerHTML += `<img alt="the original image"  style="width:500px;"
+                                                            src = "${readerEvent.target.result}"/>`;
+                            }
+                        }else{
+                            throw new Error('Unknown "how"');
+                        }
+                    }
+                }
+            };
+            xhr.send(formData);
+        }
+    </script>
+</head>
+<body>
+<div id="add_image">
+    <h3>Add image to the index</h3>
+    <label>
+        Image URL:
+        <input type="text" id="add_img_url" placeholder="https://somehost.com/image.jpeg">
+    </label>
+    <label>
+        Additional details (valid JSON):
+        <input type="text" id="add_img_attrs" placeholder='{"id": 123, "category": "thumbnail"}'>
+    </label>
+    <input type="button" value="Add" onclick="addImage()">
+    <div id="add_img_result"></div>
+</div>
+<div id="find_image">
+    <h3>Find similar image by URL or file</h3>
+    <div>
+        <label>
+            Image URL:
+            <input type="text" id="find_img_url" placeholder="https://somehost.com/image.jpeg">
+        </label>
+        <input type="button" value="Find" onclick="findSimilarImg('by URL')">
+    </div>
+    <div>
+        <label>
+            Image file:
+            <input type="file" id="orig_image">
+        </label>
+        <input type="button" value="Find" id="find_by_file" onclick="findSimilarImg('by file')">
+    </div>
+    <div id="find_img_result"></div>
+</div>
+</body>
+</html>

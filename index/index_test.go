@@ -1,13 +1,12 @@
-package imgidx_test
+package index_test
 
 import (
 	"fmt"
-	"github.com/alef-ru/imgidx"
 	"github.com/alef-ru/imgidx/embedders"
+	"github.com/alef-ru/imgidx/index"
 	"github.com/stretchr/testify/assert"
 	"image"
 	"image/color"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -19,14 +18,14 @@ import (
 	"testing"
 )
 
-func addPokemonsToIndex(t *testing.T, idx imgidx.Index) {
+func addPokemonsToIndex(t *testing.T, idx index.Index) {
 	imgDirPath := "./testdata/pokemon"
 	files, err := os.ReadDir(imgDirPath)
 	if err != nil {
 		t.Fatalf("failed to read files in %s : %v", imgDirPath, err)
 	}
 	for _, file := range files {
-		_, err := imgidx.AddImageFile(idx, path.Join(imgDirPath, file.Name()), file.Name())
+		_, err := index.AddImageFile(idx, path.Join(imgDirPath, file.Name()), file.Name())
 		if err != nil {
 			t.Fatalf("failed to add image %s : %v", file.Name(), err)
 		}
@@ -41,9 +40,9 @@ func newEmbedder() embedders.ImageEmbedder {
 	})
 }
 
-func newKD3Index(t *testing.T) imgidx.Index {
+func newKD3Index(t *testing.T) index.Index {
 
-	idx, err := imgidx.NewKDTreeImageIndex(newEmbedder())
+	idx, err := index.NewKDTreeImageIndex(newEmbedder())
 	if err != nil {
 		t.Fatalf("failed to create index : %v", err)
 	}
@@ -145,9 +144,9 @@ func TestIndexWeekMatch(t *testing.T) {
 
 }
 
-func generateTestImages(t *testing.T) imgidx.Index {
+func generateTestImages(t *testing.T) index.Index {
 	e := embedders.NewAspectRatioEmbedder()
-	idx, err := imgidx.NewKDTreeImageIndex(e)
+	idx, err := index.NewKDTreeImageIndex(e)
 	if err != nil {
 		t.Fatalf("Failed to create idx, : %v", err)
 	}
@@ -238,31 +237,26 @@ func TestIndexConcurrentWrite(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			uri := fmt.Sprintf("files://./image_%d", i)
-			log.Printf("Start adding job %d, index size: %d", i, idx.GetCount())
 			_, err := idx.AddImage(extraImage, uri, "extra")
 			if err != nil {
 				panic("Failed to add extra image to index")
 			}
-			log.Printf("Done adding job %d, index size: %d", i, idx.GetCount())
 		}(i)
 	}
 	for i := 0; i < iterations; i++ {
 		go func(i int) {
 			defer wg.Done()
-			log.Printf("Start remove job %d index size: %d", i, idx.GetCount())
 			deleted, err := idx.Remove(removeExtraImages)
 			if err != nil {
 				panic("Failed to remove extra images from index")
 			}
 			deletionResults <- deleted
-			log.Printf("Done remove job %d: %d images deleted, index size: %d", i, len(deleted), idx.GetCount())
 		}(i)
 	}
 	wg.Wait()
 	close(deletionResults)
 	removed, err := idx.Remove(removeExtraImages)
 	deletedTotal := len(removed)
-	log.Printf("%d images deleted", deletedTotal)
 	if err != nil {
 		t.Fatalf("Failed to remove extra images from index, : %v", err)
 	}
@@ -284,12 +278,12 @@ func TestAddImageUrl(t *testing.T) {
 	imgUrl := server.URL + "/abra.png"
 	imgPath := "./testdata/pokemon/abra.png"
 	idx := newKD3Index(t)
-	urlVec, err := imgidx.AddImageUrl(idx, imgUrl, "form url")
+	urlVec, err := index.AddImageUrl(idx, imgUrl, "form url")
 	if err != nil {
 		t.Fatalf("Failed to add image from url %v : %v", imgUrl, err)
 	}
 
-	fileVec, err := imgidx.AddImageFile(idx, imgPath, "form file")
+	fileVec, err := index.AddImageFile(idx, imgPath, "form file")
 	if err != nil {
 		t.Fatalf("Failed to add image from file %v : %v", imgPath, err)
 	}
@@ -314,7 +308,7 @@ func TestUniqueUris(t *testing.T) {
 	addPokemonsToIndex(t, idx)
 	cnt := idx.GetCount()
 
-	vec, err := imgidx.AddImageFile(idx, testImgPath, "already exists")
+	vec, err := index.AddImageFile(idx, testImgPath, "already exists")
 	assert.NotNil(t, err, "Error expected")
 	assert.Nil(t, vec, "The result was expected to be nil")
 	assert.Equal(t, cnt, idx.GetCount(), "The index size was expected to remain the same")
@@ -326,7 +320,7 @@ func TestUniqueUris(t *testing.T) {
 	assert.Equal(t, cnt-1, idx.GetCount(), "The index size was expected to decrease")
 	assert.Equal(t, len(removed), 1, "Exactly one image was expected to be removed")
 
-	vec, err = imgidx.AddImageFile(idx, "testdata/pokemon/abra.png", "already exists")
+	vec, err = index.AddImageFile(idx, "testdata/pokemon/abra.png", "already exists")
 	assert.Nil(t, err, "Error was not expected")
 	assert.NotNil(t, vec, "The result was not expected to be nil")
 	assert.Equal(t, cnt, idx.GetCount(), "The index size was expected to remain the same")
