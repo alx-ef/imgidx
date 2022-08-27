@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/alef-ru/imgidx"
 	"github.com/alef-ru/imgidx/embedders"
-	"github.com/alef-ru/imgidx/index"
 	"gorm.io/driver/sqlite"
 	"image"
 	"log"
@@ -14,15 +14,15 @@ import (
 )
 import "github.com/gin-gonic/gin"
 
-var idx index.Index
+var idx imgidx.Index
 
 type AddImageRequest struct {
 	Url        string      `json:"url"  binding:"required"`
 	Attributes interface{} `json:"attrs"`
 }
 
-func newIndex() index.Index {
-	kd3Idx, err := index.NewKDTreeImageIndex(
+func newIndex() imgidx.Index {
+	kd3Idx, err := imgidx.NewKDTreeImageIndex(
 		embedders.Composition([]embedders.ImageEmbedder{
 			embedders.NewAspectRatioEmbedder(),
 			embedders.NewColorDispersionEmbedder(),
@@ -32,7 +32,7 @@ func newIndex() index.Index {
 	if err != nil {
 		log.Fatalf("Failed to create KDTreeIndex index : %v", err)
 	}
-	persistentIdx, err := index.NewPersistentIndex(sqlite.Open("imgidx.db"), kd3Idx)
+	persistentIdx, err := imgidx.NewPersistentIndex(sqlite.Open("imgidx.db"), kd3Idx)
 	if err != nil {
 		log.Fatalf("Failed to create persistent index : %v", err)
 	}
@@ -69,7 +69,7 @@ func addImage(c *gin.Context) {
 		validationError(c, err.Error())
 		return
 	}
-	_, err := index.AddImageUrl(idx, req.Url, req.Attributes)
+	_, err := imgidx.AddImageUrl(idx, req.Url, req.Attributes)
 	if err != nil {
 		validationError(c, err.Error())
 		return
@@ -85,7 +85,7 @@ func findByURL(c *gin.Context) {
 		validationError(c, err.Error())
 		return
 	}
-	nearestImgUrl, attrs, dist, err := index.NearestByURL(idx, imgUrl)
+	nearestImgUrl, attrs, dist, err := imgidx.NearestByURL(idx, imgUrl)
 	if err != nil {
 		validationError(c, err.Error())
 		return
