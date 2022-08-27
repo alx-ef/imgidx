@@ -3,6 +3,7 @@ package imgidx
 import (
 	"fmt"
 	"github.com/alef-ru/imgidx/embedders"
+	"gorm.io/gorm"
 	"image"
 	_ "image/gif"  // register GIF decoder
 	_ "image/jpeg" // register JPEG decoder
@@ -164,19 +165,8 @@ func NewKDTreeImageIndex(embedder embedders.ImageEmbedder) (Index, error) {
 	return &index, nil
 }
 
-func AddImageFile(idx Index, path string, attrs interface{}) (vec embedders.Vector, err error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open image file %s: %w", path, err)
-	}
-	defer func() {
-		closingErr := f.Close()
-		if err == nil {
-			err = closingErr
-		}
-	}()
-
-	img, _, err := image.Decode(f)
+func AddImageFile(idx Index, path string, attrs interface{}) (embedders.Vector, error) {
+	img, err := readImageFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -186,6 +176,26 @@ func AddImageFile(idx Index, path string, attrs interface{}) (vec embedders.Vect
 	}
 	uri := "file://" + filepath.Join(wd, path)
 	return idx.AddImage(img, uri, attrs)
+}
+
+func readImageFile(path string) (img image.Image, err error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open image file %s: %w", path, err)
+	}
+	defer func() {
+		closingErr := f.Close()
+		if err == nil && closingErr != nil {
+			err = closingErr
+			img = nil
+		}
+	}()
+
+	img, _, err = image.Decode(f)
+	if err != nil {
+		return nil, err
+	}
+	return img, nil
 }
 
 func downloadImage(url string) (image.Image, error) {
@@ -223,4 +233,34 @@ func NearestByURL(idx Index, url string) (uri string, attrs interface{}, distanc
 		return "", nil, -1, fmt.Errorf("failed to get %v, %w", url, err)
 	}
 	return idx.Nearest(img)
+}
+
+func NearestByFile(idx Index, path string) (uri string, attrs interface{}, distance float64, err error) {
+	img, err := readImageFile(path)
+	if err != nil {
+		return "", nil, -1, fmt.Errorf("failed to read %v, %w", path, err)
+	}
+	return idx.Nearest(img)
+}
+
+func NewPersistentCompositeIndex(width, height int, dialector gorm.Dialector) (Index, error) {
+	compositeIdx, err := NewCompositeIndex(width, height)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create KDTreeIndex index : %v", err)
+	}
+	persistentIdx, err := NewPersistentIndex(dialector, compositeIdx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create persistent index : %v", err)
+	}
+	return persistentIdx, nil
+}
+
+func NewCompositeIndex(width int, height int) (Index, error) {
+	return NewKDTreeImageIndex(
+		embedders.Composition([]embedders.ImageEmbedder{
+			embedders.NewAspectRatioEmbedder(),
+			embedders.NewColorDispersionEmbedder(),
+			embedders.NewLowResolutionEmbedder(width, height),
+		}),
+	)
 }

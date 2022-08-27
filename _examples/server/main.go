@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/alef-ru/imgidx"
-	"github.com/alef-ru/imgidx/embedders"
 	"gorm.io/driver/sqlite"
 	"image"
 	"log"
@@ -21,31 +20,14 @@ type AddImageRequest struct {
 	Attributes interface{} `json:"attrs"`
 }
 
-func newIndex() imgidx.Index {
-	kd3Idx, err := imgidx.NewKDTreeImageIndex(
-		embedders.Composition([]embedders.ImageEmbedder{
-			embedders.NewAspectRatioEmbedder(),
-			embedders.NewColorDispersionEmbedder(),
-			embedders.NewLowResolutionEmbedder(8, 8),
-		}),
-	)
-	if err != nil {
-		log.Fatalf("Failed to create KDTreeIndex index : %v", err)
-	}
-	persistentIdx, err := imgidx.NewPersistentIndex(sqlite.Open("imgidx.db"), kd3Idx)
-	if err != nil {
-		log.Fatalf("Failed to create persistent index : %v", err)
-	}
-	return persistentIdx
-}
 func initAndRunWebServer() {
 	r := gin.New()
 	gin.EnableJsonDecoderDisallowUnknownFields()
 	r.POST("/images/", addImage)     // Add new Images to the index
 	r.GET("/images/*url", findByURL) // Find the most similar image by URL
 	r.POST("/find-similar-to-file/", findByFile)
-	r.StaticFile("/", "_example/spa.html")
-	r.StaticFile("/bootstrap.min.css", "_example/bootstrap.min.css")
+	r.StaticFile("/", "_examples/server/spa.html")
+	r.StaticFile("/bootstrap.min.css", "_examples/server/bootstrap.min.css")
 	r.MaxMultipartMemory = 8 << 20 // 8 MiB
 	err := r.Run(":8080")
 	if err != nil {
@@ -134,6 +116,10 @@ func findByFile(c *gin.Context) {
 }
 
 func main() {
-	idx = newIndex()
+	var err error
+	idx, err = imgidx.NewPersistentCompositeIndex(8, 8, sqlite.Open("imgidx.db"))
+	if err != nil {
+		log.Fatal(err)
+	}
 	initAndRunWebServer()
 }
