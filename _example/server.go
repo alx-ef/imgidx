@@ -44,7 +44,7 @@ func initAndRunWebServer() {
 	r.POST("/images/", addImage)     // Add new Images to the index
 	r.GET("/images/*url", findByURL) // Find the most similar image by URL
 	r.POST("/find-similar-to-file/", findByFile)
-	r.StaticFile("/", "./example-spa.html")
+	r.StaticFile("/", "_example/spa.html")
 	r.MaxMultipartMemory = 8 << 20 // 8 MiB
 	err := r.Run(":8080")
 	if err != nil {
