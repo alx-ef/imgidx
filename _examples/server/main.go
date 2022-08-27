@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/alef-ru/imgidx"
-	"github.com/alef-ru/imgidx/embedders"
 	"gorm.io/driver/sqlite"
 	"image"
 	"log"
@@ -21,23 +20,6 @@ type AddImageRequest struct {
 	Attributes interface{} `json:"attrs"`
 }
 
-func newIndex() imgidx.Index {
-	kd3Idx, err := imgidx.NewKDTreeImageIndex(
-		embedders.Composition([]embedders.ImageEmbedder{
-			embedders.NewAspectRatioEmbedder(),
-			embedders.NewColorDispersionEmbedder(),
-			embedders.NewLowResolutionEmbedder(8, 8),
-		}),
-	)
-	if err != nil {
-		log.Fatalf("Failed to create KDTreeIndex index : %v", err)
-	}
-	persistentIdx, err := imgidx.NewPersistentIndex(sqlite.Open("imgidx.db"), kd3Idx)
-	if err != nil {
-		log.Fatalf("Failed to create persistent index : %v", err)
-	}
-	return persistentIdx
-}
 func initAndRunWebServer() {
 	r := gin.New()
 	gin.EnableJsonDecoderDisallowUnknownFields()
@@ -134,6 +116,10 @@ func findByFile(c *gin.Context) {
 }
 
 func main() {
-	idx = newIndex()
+	var err error
+	idx, err = imgidx.NewPersistentCompositeIndex(8, 8, sqlite.Open("imgidx.db"))
+	if err != nil {
+		log.Fatal(err)
+	}
 	initAndRunWebServer()
 }
