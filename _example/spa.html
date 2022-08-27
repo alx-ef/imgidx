@@ -57,19 +57,18 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <h4>The original image</h4>
-                                <img style="width: 100%;" id="original-image">
+                                <img alt="Original image" style="width: 100%;" id="original-image">
                             </div>
                             <div class="col-md-6">
                                 <h4>The nearest image in the index</h4>
-                                <img src="${json.url}" style="width: 100%;" class="img-fluid">
+                                <img alt="The nearest image" src="${json.url}" style="width: 100%;">
                             </div>
                         </div>
                         <p><strong>Distance:</strong> ${json.distance}</p>
                         <p><strong>Additional attributes:</strong><code>${JSON.stringify(json.additional_details)}</code></p>`;
                         const originalImage = document.getElementById("original-image")
                         if (how === 'by URL') {
-                            const imgUrl = document.getElementById("find_img_url").value;
-                            originalImage.src = imgUrl
+                            originalImage.src = document.getElementById("find_img_url").value;
                         } else if (how === 'by file') {
                             const inputFile = document.getElementById("orig_image");
                             const file = inputFile.files[0];
