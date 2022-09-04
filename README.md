@@ -103,3 +103,18 @@ In our case this one:
 ![Absol](testdata/pokemon/absol.png)
 
 Distance:  __3.108842__
+
+## Example server
+
+In `_examples/server` you can find a simple server that can be used to index and search images.
+
+You can run it like this:
+```bash
+git clone https://github.com/alef-ru/imgidx.git
+cd imgidx
+HTTPS_HOSTNAME=imgidx.example.com  AUTH_TOKEN=my_secret_token  go run ./_examples/server/
+```
+
+`HTTPS_HOSTNAME` is optional. Omit it if you don't want to use HTTPS. The app will listen on port 8080, in this case.
+
+`AUTH_TOKEN` is also optional, if you omit it, the server will not require token.
