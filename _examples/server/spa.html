@@ -9,9 +9,11 @@
             const imgUrl = document.getElementById("add_img_url").value;
             const attrs = document.getElementById("add_img_attrs").value;
             const resultDiv = document.getElementById("add_img_result");
+            const token = document.getElementById("token").value;
             const xhr = new XMLHttpRequest();
             xhr.open("POST", "/images/", true);
             xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.setRequestHeader("X-Token", token);
             xhr.onreadystatechange = function () {
                 if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 400)) {
                     const json = JSON.parse(xhr.responseText);
@@ -29,6 +31,7 @@
 
         function findSimilarImg(how) {
             const resultDiv = document.getElementById("find_img_result")
+            const token = document.getElementById("token").value;
             const xhr = new XMLHttpRequest();
             let formData = null
             if (how === 'by URL') {
@@ -83,12 +86,27 @@
                     }
                 }
             };
+            xhr.setRequestHeader("X-Token", token);
             xhr.send(formData);
         }
     </script>
 </head>
 <body class="bg-light">
 <div class="container ">
+
+    <div class="row">
+        <div class="col-md">
+            <label class="form-label" for="token">Auth token</label>
+            <input type="text" class="form-control" id="token"/>
+            <p>
+                Auth token in SPA must match token passed to the server over environment variable AUTH_TOKEN.
+                By default, both tokens are empty
+            </p>
+        </div>
+    </div>
+
+    <hr/>
+
     <div class="row">
         <h4 class="mt-5">Add image to the index</h4>
         <div class="col-md">

@@ -18,7 +18,10 @@ import (
 
 const HttpPort = 8080
 
-var idx imgidx.Index
+var (
+	idx   imgidx.Index
+	token string
+)
 
 type AddImageRequest struct {
 	Url        string      `json:"url"  binding:"required"`
@@ -26,6 +29,8 @@ type AddImageRequest struct {
 }
 
 func initAndRunWebServer() {
+
+	//Init router
 	r := gin.New()
 	gin.EnableJsonDecoderDisallowUnknownFields()
 	r.POST("/images/", addImage)     // Add new Images to the index
@@ -35,6 +40,7 @@ func initAndRunWebServer() {
 	r.StaticFile("/bootstrap.min.css", "_examples/server/bootstrap.min.css")
 	r.MaxMultipartMemory = 8 << 20 // 8 MiB
 
+	// Run server
 	var err error
 	if httpsHostname := os.Getenv("HTTPS_HOSTNAME"); httpsHostname == "" {
 		log.Printf("Running HTTP server on port %d", HttpPort)
@@ -57,6 +63,10 @@ func validationError(c *gin.Context, err error) {
 }
 
 func addImage(c *gin.Context) {
+	if token != c.GetHeader("X-Token") {
+		validationError(c, errors.New("invalid token"))
+		return
+	}
 	req := AddImageRequest{}
 	if err := c.BindJSON(&req); err != nil {
 		validationError(c, err)
@@ -77,6 +87,10 @@ func addImage(c *gin.Context) {
 }
 
 func findByURL(c *gin.Context) {
+	if token != c.GetHeader("X-Token") {
+		validationError(c, errors.New("invalid token"))
+		return
+	}
 	imgUrl := strings.TrimPrefix(c.Param("url"), "/")
 	if _, err := url.ParseRequestURI(imgUrl); err != nil {
 		validationError(c, err)
@@ -95,6 +109,10 @@ func findByURL(c *gin.Context) {
 }
 
 func findByFile(c *gin.Context) {
+	if token != c.GetHeader("X-Token") {
+		validationError(c, errors.New("invalid token"))
+		return
+	}
 	file, err := c.FormFile("image-file")
 	if err != nil {
 		validationError(c, err)
@@ -136,5 +154,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	token = os.Getenv("AUTH_TOKEN")
 	initAndRunWebServer()
 }
