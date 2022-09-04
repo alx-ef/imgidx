@@ -1,17 +1,22 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/alef-ru/imgidx"
+	"github.com/gin-gonic/autotls"
+	"github.com/gin-gonic/gin"
 	"gorm.io/driver/sqlite"
 	"image"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 )
-import "github.com/gin-gonic/gin"
+
+const HttpPort = 8080
 
 var idx imgidx.Index
 
@@ -29,7 +34,15 @@ func initAndRunWebServer() {
 	r.StaticFile("/", "_examples/server/spa.html")
 	r.StaticFile("/bootstrap.min.css", "_examples/server/bootstrap.min.css")
 	r.MaxMultipartMemory = 8 << 20 // 8 MiB
-	err := r.Run(":8080")
+
+	var err error
+	if httpsHostname := os.Getenv("HTTPS_HOSTNAME"); httpsHostname == "" {
+		log.Printf("Running HTTP server on port %d", HttpPort)
+		err = r.Run(fmt.Sprintf(":%d", HttpPort))
+	} else {
+		log.Printf("Running HTTPS server on %s", httpsHostname)
+		err = autotls.Run(r, httpsHostname)
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
