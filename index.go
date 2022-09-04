@@ -16,6 +16,23 @@ import (
 )
 import "gonum.org/v1/gonum/spatial/kdtree"
 
+// URIAlreadyExists is returned if the image with the same URI is already in the index
+type URIAlreadyExists struct {
+	uri string
+}
+
+func (e URIAlreadyExists) Error() string {
+	return fmt.Sprintf("image with URI %s is already in the index", e.uri)
+}
+
+func (target URIAlreadyExists) Is(err error) bool {
+	if err == nil {
+		return false
+	}
+	_, ok := err.(URIAlreadyExists)
+	return ok
+}
+
 // Index is an index of images that be searched for nearest neighbors: most similar images
 // It's not supposed to keep the images in memory, but only some compact representation of the images (the vectors ).
 type Index interface {
@@ -76,7 +93,7 @@ func (idx *kDTreeIndex) AddVector(vec embedders.Vector, uri string, attrs interf
 	idx.lock.Lock()
 	defer idx.lock.Unlock()
 	if idx.uris[uri] {
-		return fmt.Errorf("image with URI %s is already in the index", uri)
+		return URIAlreadyExists{uri: uri}
 	}
 	idx.tree.Insert(ImgEmbed{URI: uri, Vector: kdtree.Point(vec), Attributes: attrs}, false)
 	idx.uris[uri] = true
