@@ -64,7 +64,7 @@ func validationError(c *gin.Context, err error) {
 
 func addImage(c *gin.Context) {
 	if token != c.GetHeader("X-Token") {
-		validationError(c, errors.New("invalid token"))
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid token"})
 		return
 	}
 	req := AddImageRequest{}
@@ -88,7 +88,7 @@ func addImage(c *gin.Context) {
 
 func findByURL(c *gin.Context) {
 	if token != c.GetHeader("X-Token") {
-		validationError(c, errors.New("invalid token"))
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid token"})
 		return
 	}
 	imgUrl := strings.TrimPrefix(c.Param("url"), "/")
@@ -110,7 +110,7 @@ func findByURL(c *gin.Context) {
 
 func findByFile(c *gin.Context) {
 	if token != c.GetHeader("X-Token") {
-		validationError(c, errors.New("invalid token"))
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid token"})
 		return
 	}
 	file, err := c.FormFile("image-file")
