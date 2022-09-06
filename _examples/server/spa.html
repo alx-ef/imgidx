@@ -5,6 +5,7 @@
     <title>Find similar image</title>
     <link href="bootstrap.min.css" rel="stylesheet" />
     <link rel="icon" type="image/x-icon" href="icon.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body class="bg-light">
 <div class="container ">
@@ -116,11 +117,11 @@
                 } else {
                     resultDiv.innerHTML = `
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-lg-6">
                                 <h4>The original image</h4>
                                 <img alt="Original image" style="width: 100%;" id="original-image">
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-lg-6">
                                 <h4>The nearest image in the index</h4>
                                 <img alt="The nearest image" src="${json.url}" style="width: 100%;">
                             </div>
