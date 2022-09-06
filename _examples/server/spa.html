@@ -5,98 +5,12 @@
     <title>Find similar image</title>
     <link href="bootstrap.min.css" rel="stylesheet" />
     <link rel="icon" type="image/x-icon" href="icon.png">
-    <script>
-        function addImage() {
-            const imgUrl = document.getElementById("add_img_url").value;
-            const attrs = document.getElementById("add_img_attrs").value;
-            const resultDiv = document.getElementById("add_img_result");
-            const token = document.getElementById("token").value;
-            const xhr = new XMLHttpRequest();
-            xhr.open("POST", "/images/", true);
-            xhr.setRequestHeader("Content-Type", "application/json");
-            xhr.setRequestHeader("X-Token", token);
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 400)) {
-                    const json = JSON.parse(xhr.responseText);
-                    resultDiv.innerHTML = json.message;
-                    if (xhr.status === 400) {
-                        resultDiv.style.color = "red";
-                    } else {
-                        resultDiv.style.color = "green";
-                    }
-                }
-            };
-            const data = `{"url": "${imgUrl}" , "attrs": ${attrs ? attrs : '"no additional info specified"'}}`;
-            xhr.send(data);
-        }
-
-        function findSimilarImg(how) {
-            const resultDiv = document.getElementById("find_img_result")
-            const token = document.getElementById("token").value;
-            const xhr = new XMLHttpRequest();
-            let formData = null
-            if (how === 'by URL') {
-                const imgUrl = document.getElementById("find_img_url").value;
-                xhr.open("GET", `/images/${encodeURIComponent(imgUrl)}`, true);
-            } else if (how === 'by file') {
-                const inputFile = document.getElementById("orig_image");
-                const file = inputFile.files[0];
-                formData = new FormData();
-                formData.append("image-file", file);
-                xhr.open("POST", "/find-similar-to-file/", true);
-            } else {
-                throw new Error('Unknown "how"');
-            }
-            resultDiv.style.color = null;
-            resultDiv.innerHTML = 'Working...';
-
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 400)) {
-                    const json = JSON.parse(xhr.responseText);
-                    if (xhr.status === 400) {
-                        resultDiv.style.color = "red";
-                        resultDiv.innerHTML = json.message;
-                    } else {
-                        resultDiv.innerHTML = `
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h4>The original image</h4>
-                                <img alt="Original image" style="width: 100%;" id="original-image">
-                            </div>
-                            <div class="col-md-6">
-                                <h4>The nearest image in the index</h4>
-                                <img alt="The nearest image" src="${json.url}" style="width: 100%;">
-                            </div>
-                        </div>
-                        <p><strong>Distance:</strong> ${json.distance}</p>
-                        <p><strong>Additional attributes:</strong><code>${JSON.stringify(json.additional_details)}</code></p>`;
-                        const originalImage = document.getElementById("original-image")
-                        if (how === 'by URL') {
-                            originalImage.src = document.getElementById("find_img_url").value;
-                        } else if (how === 'by file') {
-                            const inputFile = document.getElementById("orig_image");
-                            const file = inputFile.files[0];
-                            const reader = new FileReader();
-                            reader.readAsDataURL(file);
-                            reader.onload = readerEvent => {
-                                originalImage.src = readerEvent.target.result;
-                            }
-                        } else {
-                            throw new Error('Unknown "how"');
-                        }
-                    }
-                }
-            };
-            xhr.setRequestHeader("X-Token", token);
-            xhr.send(formData);
-        }
-    </script>
 </head>
 <body class="bg-light">
 <div class="container ">
 
     <div class="row">
-        <div class="col-md">
+        <div class="col-lg">
             <label class="form-label" for="token">Auth token</label>
             <input type="text" class="form-control" id="token"/>
             <p>
@@ -110,17 +24,17 @@
 
     <div class="row">
         <h4 class="mt-5">Add image to the index</h4>
-        <div class="col-md">
+        <div class="col-lg">
             <label class="form-label" for="add_img_url">Image URL</label>
             <input type="text" class="form-control" id="add_img_url" placeholder="https://somehost.com/image.jpeg"/>
         </div>
-        <div class="col-md">
+        <div class="col-lg">
             <label class="form-label" for="add_img_attrs">Additional details (valid JSON)</label>
             <input type="text" class="form-control" id="add_img_attrs"
                    placeholder='{"id": 123, "category": "thumbnail"}'/>
         </div>
     </div>
-    <input type="button" value="Add" class="w-100 btn btn-primary mt-2 mb-2" onclick="addImage()">
+    <input type="button" value="Add Image" class="w-100 btn btn-primary mt-2 mb-2" onclick="addImage()">
     <div class="row">
         <div class="col" id="add_img_result"></div>
     </div>
@@ -129,34 +43,125 @@
 
     <h4 class="mt-5">Find similar image by URL or file</h4>
     <div class="row">
-        <div class="col-md">
-            <div class="row align-items-end">
-                <div class="col">
-                    <label class="form-label" for="find_img_url">Image URL</label>
-                    <input class="form-control" type="text" id="find_img_url"
-                           placeholder="https://somehost.com/image.jpeg"/>
-                </div>
-                <div class="col-2">
-                    <input type="button" class="btn btn-primary" value="Find"
-                           onclick="findSimilarImg('by URL')"/>
-                </div>
-            </div>
+        <div class="col-lg  mt-2 mb-2">
+            <select class="form-select" id="search_selector" onchange="selectSearchType()">
+                <option value="by_file" selected>Find Image by File</option>
+                <option value="by_url">Find Image by URL</option>
+            </select>
         </div>
-        <div class="col-md">
-            <div class="row align-items-end">
-                <div class="col">
-                    <label class="form-label" for="orig_image">Image file</label>
-                    <input class="form-control" type="file" id="orig_image"/>
-                </div>
-                <div class="col-2">
-                    <input type="button" class="btn btn-primary" value="Find" id="find_by_file"
-                           onclick="findSimilarImg('by file')"/>
-                </div>
+        <div class="col-lg search_by  mt-2 mb-2" id="by_file">
+            <input class="form-control" type="file" id="orig_image" />
+        </div>
+        <div class="col-lg d-none search_by  mt-2 mb-2" id="by_url">
+            <input class="form-control" type="text" id="find_img_url" placeholder="https://somehost.com/image.jpeg"/>
+        </div>
 
-            </div>
-        </div>
     </div>
+    <input type="button" class="w-100 btn btn-primary mt-2 mb-2" value="Find Image" id="find_by_file"
+           onclick="findSimilarImg()"/>
     <div id="find_img_result" class="mt-5"></div>
 </div>
+<script>
+    function addImage() {
+        const imgUrl = document.getElementById("add_img_url").value;
+        const attrs = document.getElementById("add_img_attrs").value;
+        const resultDiv = document.getElementById("add_img_result");
+        const token = document.getElementById("token").value;
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/images/", true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.setRequestHeader("X-Token", token);
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 400 || xhr.status === 401)) {
+                const json = JSON.parse(xhr.responseText);
+                resultDiv.innerHTML = json.message;
+                if (xhr.status === 400 || xhr.status === 401) {
+                    resultDiv.style.color = "red";
+                } else {
+                    resultDiv.style.color = "green";
+                }
+            }
+        };
+        const data = `{"url": "${imgUrl}" , "attrs": ${attrs ? attrs : '"no additional info specified"'}}`;
+        xhr.send(data);
+    }
+
+    function findSimilarImg() {
+        const resultDiv = document.getElementById("find_img_result")
+        const token = document.getElementById("token").value;
+        const xhr = new XMLHttpRequest();
+        let formData = null
+        how = search_selector.value
+        if (how === 'by_url') {
+            const imgUrl = document.getElementById("find_img_url").value;
+            xhr.open("GET", `/images/${encodeURIComponent(imgUrl)}`, true);
+        } else if (how === 'by_file') {
+            const inputFile = document.getElementById("orig_image");
+            const file = inputFile.files[0];
+            formData = new FormData();
+            formData.append("image-file", file);
+            xhr.open("POST", "/find-similar-to-file/", true);
+        } else {
+            throw new Error('Unknown "how"');
+        }
+        resultDiv.style.color = null;
+        resultDiv.innerHTML = 'Working...';
+
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4 && (xhr.status === 200 || xhr.status === 400 || xhr.status === 401)) {
+                const json = JSON.parse(xhr.responseText);
+                if (xhr.status === 400 || xhr.status === 401) {
+                    resultDiv.style.color = "red";
+                    resultDiv.innerHTML = json.message;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h4>The original image</h4>
+                                <img alt="Original image" style="width: 100%;" id="original-image">
+                            </div>
+                            <div class="col-md-6">
+                                <h4>The nearest image in the index</h4>
+                                <img alt="The nearest image" src="${json.url}" style="width: 100%;">
+                            </div>
+                        </div>
+                        <p><strong>Distance:</strong> ${json.distance}</p>
+                        <p><strong>Additional attributes:</strong><code>${JSON.stringify(json.additional_details)}</code></p>`;
+                    const originalImage = document.getElementById("original-image")
+                    if (how === 'by_url') {
+                        originalImage.src = document.getElementById("find_img_url").value;
+                    } else if (how === 'by_file') {
+                        const inputFile = document.getElementById("orig_image");
+                        const file = inputFile.files[0];
+                        const reader = new FileReader();
+                        reader.readAsDataURL(file);
+                        reader.onload = readerEvent => {
+                            originalImage.src = readerEvent.target.result;
+                        }
+                    } else {
+                        throw new Error('Unknown "how"');
+                    }
+                }
+            }
+        };
+        xhr.setRequestHeader("X-Token", token);
+        xhr.send(formData);
+    }
+    function selectSearchType(e){
+        if (e) {
+                const target = e.target.value;
+            for (el of document.getElementsByClassName("search_by")){
+                if (el.id === target){
+                    el.classList.remove("d-none");
+                } else {
+                    el.classList.add("d-none");
+                }
+            }
+        }
+    }
+    search_selector = document.getElementById("search_selector")
+    search_selector.addEventListener('change', selectSearchType);
+
+</script>
 </body>
 </html>
