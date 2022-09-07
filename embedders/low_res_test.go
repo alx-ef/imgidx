@@ -1,10 +1,11 @@
 package embedders_test
 
 import (
-	"github.com/alef-ru/imgidx/embedders"
 	"image"
 	"math"
 	"testing"
+
+	"github.com/alef-ru/imgidx/embedders"
 )
 
 func TestLowResEmbedderImg2Vec(t *testing.T) {
@@ -121,5 +122,19 @@ func TestLowResEmbedderDims(t *testing.T) {
 	}
 	if len(vec) != size {
 		t.Errorf("GetSize() returned %v, but the actual vector size is got: %v", size, len(vec))
+	}
+}
+
+// Before optimisation:
+// BenchmarkLowResEmbedder_Img2Vec_8_8-10              9410            124503 ns/op           42048 B/op      10001 allocs/op
+//
+// After optimisation:
+// BenchmarkLowResEmbedder_Img2Vec_8_8-10             23830             49167 ns/op            2048 B/op          1 allocs/op
+func BenchmarkLowResEmbedder_Img2Vec_8_8(b *testing.B) {
+	e := embedders.NewLowResolutionEmbedder(8, 8)
+	img := createTestImage(100, 100)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		e.Img2Vec(img)
 	}
 }

@@ -48,6 +48,9 @@ func (v lowResolutionEmbedder) Img2Vec(img image.Image) (Vector, error) {
 
 // getAverageColor returns the average color of the given area of the image.
 func getAverageColor(img image.Image, minX int, maxX int, minY int, maxY int) (rgba [4]float64) {
+	if rgba, ok := img.(*image.RGBA); ok {
+		return getAverageColorRGBA(*rgba, minX, maxX, minY, maxY)
+	}
 	for i := minX; i < maxX; i++ {
 		for k := minY; k < maxY; k++ {
 			r, g, b, a := img.At(i, k).RGBA()
@@ -63,6 +66,32 @@ func getAverageColor(img image.Image, minX int, maxX int, minY int, maxY int) (r
 		rgba[i] /= pixelCount * 255
 	}
 	return rgba
+}
+
+// getAverageColorRGBA is optimized version of getAverageColor for RGBA images.
+func getAverageColorRGBA(img image.RGBA, minX int, maxX int, minY int, maxY int) [4]float64 {
+	var (
+		avgColorsInt   [4]int // 4 channels: R, G, B, A
+		avgColorsFloat [4]float64
+		pixelCount     = (maxX - minX) * (maxY - minY)
+		devider        = float64(pixelCount * 255)
+	)
+	if devider == 0 { //image is empty, return zeros
+		return avgColorsFloat
+	}
+	for x := minX; x < maxX; x++ {
+		for y := minY; y < maxY; y++ {
+			i := img.PixOffset(x, y)
+			s := img.Pix[i : i+4 : i+4]
+			for i, c := range s {
+				avgColorsInt[i] += int(c)
+			}
+		}
+	}
+	for i, c := range avgColorsInt {
+		avgColorsFloat[i] = float64(c) / devider
+	}
+	return avgColorsFloat
 }
 
 // NewLowResolutionEmbedder returns an embedder that takes an image, splits it into height*width rectangle
