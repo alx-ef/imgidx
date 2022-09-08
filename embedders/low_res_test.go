@@ -125,37 +125,3 @@ func TestLowResEmbedderDims(t *testing.T) {
 		t.Errorf("GetSize() returned %v, but the actual vector size is got: %v", size, len(vec))
 	}
 }
-
-// Before optimisation:
-// BenchmarkLowResEmbedder_Img2Vec_8_8-10              9410            124503 ns/op           42048 B/op      10001 allocs/op
-//
-// After optimisation:
-// BenchmarkLowResEmbedder_Img2Vec_8_8-10             23956             49136 ns/op            2048 B/op          1 allocs/op
-func BenchmarkLowResEmbedder_Img2Vec_NoConversion_8_8(b *testing.B) {
-	e := embedders.NewLowResolutionEmbedder(8, 8)
-	img := createTestImage(100, 100)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		e.Img2Vec(img)
-	}
-}
-
-// Before optimisation:
-// BenchmarkLowResEmbedder_Img2Vec_Jpeg_8_8-10          264           4414829 ns/op          840916 B/op     262145 allocs/op
-//
-// After optimisation:
-// BenchmarkLowResEmbedder_Img2Vec_Jpeg_8_8-10           22          50949258 ns/op        67115143 B/op        130 allocs/op
-// BenchmarkLowResEmbedder_Img2Vec_Jpeg_8_8-10          582           2018670 ns/op         1050691 B/op          3 allocs/op
-// BenchmarkLowResEmbedder_Img2Vec_Jpeg_8_8-10          560           2007634 ns/op         1050689 B/op          3 allocs/op
-func BenchmarkLowResEmbedder_Img2Vec_Jpeg_8_8(b *testing.B) {
-	e := embedders.NewLowResolutionEmbedder(8, 8)
-	path := "testdata/lena.jpeg"
-	img, err := loadImage(path)
-	if err != nil {
-		b.Errorf("Failed to load test image %s: %v", path, err)
-	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		e.Img2Vec(img)
-	}
-}

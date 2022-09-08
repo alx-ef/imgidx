@@ -3,6 +3,7 @@ package embedders
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 )
 
@@ -30,16 +31,32 @@ func (v lowResolutionEmbedder) Img2Vec(img image.Image) (Vector, error) {
 		return nil, fmt.Errorf(
 			"image width and height must not be less than lowResolutionEmbedder's Width and Height parameters")
 	}
-	rgbaImg := anyImageToRGBA(img)
+
+	var (
+		rgbaImg  *image.RGBA
+		ycbcrImg *image.YCbCr
+		ok       bool
+	)
+
+	ycbcrImg, ok = img.(*image.YCbCr)
+	if !ok {
+		rgbaImg = ImageToRGBA(img)
+	}
+
 	vec := make(Vector, v.Height*v.Width*4)
 	for row := 0; row < v.Height; row++ {
 		for col := 0; col < v.Width; col++ {
-			rgba := getAverageColor(rgbaImg,
-				col*rgbaImg.Bounds().Dx()/v.Width,
-				(col+1)*rgbaImg.Bounds().Dx()/v.Width,
-				row*rgbaImg.Bounds().Dy()/v.Height,
-				(row+1)*rgbaImg.Bounds().Dy()/v.Height,
-			)
+			minX := col * img.Bounds().Dx() / v.Width
+			maxX := (col + 1) * img.Bounds().Dx() / v.Width
+			minY := row * img.Bounds().Dy() / v.Height
+			maxY := (row + 1) * img.Bounds().Dy() / v.Height
+			var rgba [4]float64
+			if ycbcrImg != nil {
+				rgba = getAverageColorYCbCr(ycbcrImg, minX, maxX, minY, maxY)
+			} else {
+				rgba = getAverageColorRGBA(rgbaImg, minX, maxX, minY, maxY)
+			}
+
 			for i, f := range rgba {
 				vec[row*v.Width*4+col*4+i] = f
 			}
@@ -48,15 +65,15 @@ func (v lowResolutionEmbedder) Img2Vec(img image.Image) (Vector, error) {
 	return vec, nil
 }
 
-// getAverageColor returns the average color of the given area of the image.
-func getAverageColor(img *image.RGBA, minX int, maxX int, minY int, maxY int) [4]float64 {
+// getAverageColorRGBA returns the average color of the given area of the image.
+func getAverageColorRGBA(img *image.RGBA, minX int, maxX int, minY int, maxY int) [4]float64 {
 	var (
 		avgColorsInt   [4]int // 4 channels: R, G, B, A
 		avgColorsFloat [4]float64
 		pixelCount     = (maxX - minX) * (maxY - minY)
-		devider        = float64(pixelCount * 255)
+		divider        = float64(pixelCount * 255)
 	)
-	if devider == 0 { //image is empty, return zeros
+	if divider == 0 { //image is empty, return zeros
 		return avgColorsFloat
 	}
 	for x := minX; x < maxX; x++ {
@@ -69,12 +86,45 @@ func getAverageColor(img *image.RGBA, minX int, maxX int, minY int, maxY int) [4
 		}
 	}
 	for i, c := range avgColorsInt {
-		avgColorsFloat[i] = float64(c) / devider
+		avgColorsFloat[i] = float64(c) / divider
 	}
 	return avgColorsFloat
 }
 
-func anyImageToRGBA(img image.Image) *image.RGBA {
+// getAverageColorYCbCr returns the average color of the given area of the image.
+func getAverageColorYCbCr(img *image.YCbCr, minX int, maxX int, minY int, maxY int) [4]float64 {
+	var (
+		avgColorsInt   [4]int // 4 channels: R, G, B, A
+		avgColorsFloat [4]float64
+		pixelCount     = (maxX - minX) * (maxY - minY)
+		divider        = float64(pixelCount * 255)
+	)
+	if divider == 0 { //image is empty, return zeros
+		return avgColorsFloat
+	}
+
+	if divider == 0 { //image is empty, return zeros
+		return avgColorsFloat
+	}
+	for x := minX; x < maxX; x++ {
+		for y := minY; y < maxY; y++ {
+			yi := img.YOffset(x, y)
+			ci := img.COffset(x, y)
+			// This function may be optimized further by moving color conversion YCbCr -> RBGA out of loops
+			r, g, b := color.YCbCrToRGB(img.Y[yi], img.Cb[ci], img.Cr[ci])
+			avgColorsInt[0] += int(r)
+			avgColorsInt[1] += int(g)
+			avgColorsInt[2] += int(b)
+			avgColorsInt[3] += 255
+		}
+	}
+	for i, c := range avgColorsInt {
+		avgColorsFloat[i] = float64(c) / divider
+	}
+	return avgColorsFloat
+}
+
+func ImageToRGBA(img image.Image) *image.RGBA {
 	if rgba, ok := img.(*image.RGBA); ok {
 		return rgba
 	}
