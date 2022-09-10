@@ -132,7 +132,7 @@ func TestIndexWeekMatch(t *testing.T) {
 	}
 
 	// I don't care about the distance.
-	// The main point, is that the propper image found
+	// The main point, is that the proper image found
 	got, _, _, err := haystack.Nearest(needle)
 	if err != nil {
 		t.Fatalf("Failed to find nearest image, : %v", err)
