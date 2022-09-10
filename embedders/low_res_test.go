@@ -11,7 +11,7 @@ import (
 
 func TestLowResEmbedderImg2Vec(t *testing.T) {
 	type args struct {
-		img    image.Image
+		img    *image.RGBA
 		height int
 		width  int
 	}

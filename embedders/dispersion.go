@@ -17,7 +17,7 @@ func (v colorDispersionEmbedder) Dims() int {
 	return 3 // red, green, blue
 }
 
-func (v colorDispersionEmbedder) Img2Vec(image image.Image) (Vector, error) {
+func (v colorDispersionEmbedder) Img2Vec(image *image.RGBA) (Vector, error) {
 	means, err := lowResolutionEmbedder{1, 1}.Img2Vec(image)
 	if err != nil {
 		return nil, err

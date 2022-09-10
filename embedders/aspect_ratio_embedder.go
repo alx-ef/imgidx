@@ -13,7 +13,7 @@ func NewAspectRatioEmbedder() ImageEmbedder {
 	return aspectRatioEmbedder{}
 }
 
-func (r aspectRatioEmbedder) Img2Vec(image image.Image) (Vector, error) {
+func (r aspectRatioEmbedder) Img2Vec(image *image.RGBA) (Vector, error) {
 	if image == nil {
 		return nil, ErrEmptyImage
 	}

@@ -1,13 +1,11 @@
 package embedders_test
 
 import (
-	"image"
+	"github.com/alef-ru/imgidx/embedders"
 	_ "image/jpeg"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/alef-ru/imgidx/embedders"
 )
 
 // Before optimisation:
@@ -59,23 +57,4 @@ func BenchmarkDispersionEmbedder_Img2Vec_NoConversion_8_8(b *testing.B) {
 		_, err := e.Img2Vec(img)
 		assert.NoError(b, err)
 	}
-}
-
-func TestRGBAvsYCbCr(t *testing.T) {
-	e := embedders.Composition([]embedders.ImageEmbedder{
-		embedders.NewLowResolutionEmbedder(8, 8),
-		embedders.NewColorDispersionEmbedder(),
-	})
-	path := "testdata/lena.jpeg"
-	ycbcrImg, err := loadImage(path)
-	assert.NoErrorf(t, err, "Failed to load test image %s", path)
-	assert.IsType(t, &image.YCbCr{}, ycbcrImg)
-	rgbaImg := embedders.ImageToRGBA(ycbcrImg)
-	assert.IsType(t, &image.RGBA{}, rgbaImg)
-
-	v1, err := e.Img2Vec(rgbaImg)
-	assert.NoError(t, err)
-	v2, err := e.Img2Vec(ycbcrImg)
-	assert.NoError(t, err)
-	assert.Equal(t, v1, v2)
 }

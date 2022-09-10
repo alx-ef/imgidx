@@ -1,6 +1,7 @@
 package embedders_test
 
 import (
+	"github.com/alef-ru/imgidx/embedders"
 	"image"
 	"image/color"
 	_ "image/png" // register PNG decoder
@@ -25,7 +26,7 @@ func almostEqualSlices(a, b []float64, threshold float64) bool {
 	return true
 }
 
-func loadImage(filePath string) (image.Image, error) {
+func loadImage(filePath string) (*image.RGBA, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -40,11 +41,10 @@ func loadImage(filePath string) (image.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	img.ColorModel().Convert(color.RGBA{})
-	return img, err
+	return embedders.ImageToRGBA(img), err
 }
 
-func createTestImage(width, height int) image.Image {
+func createTestImage(width, height int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	// Set color for each pixel.
 	for x := 0; x < width; x++ {
@@ -65,7 +65,7 @@ func createTestImage(width, height int) image.Image {
 	return img
 }
 
-func createMonochromeImage(width, height int) image.Image {
+func createMonochromeImage(width, height int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
@@ -75,7 +75,7 @@ func createMonochromeImage(width, height int) image.Image {
 	return img
 }
 
-func createNoisyImage(width, height int) image.Image {
+func createNoisyImage(width, height int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
@@ -87,7 +87,7 @@ func createNoisyImage(width, height int) image.Image {
 	return img
 }
 
-func createMaxDispersionImage(width, height int) image.Image {
+func createMaxDispersionImage(width, height int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
