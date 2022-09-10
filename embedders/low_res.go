@@ -74,6 +74,9 @@ func getAverageColorRGBA(img *image.RGBA, minX int, maxX int, minY int, maxY int
 }
 
 func ImageToRGBA(img image.Image) *image.RGBA {
+	if img == nil {
+		return nil
+	}
 	if rgba, ok := img.(*image.RGBA); ok {
 		return rgba
 	}
