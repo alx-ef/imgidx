@@ -1,15 +1,17 @@
 package embedders_test
 
 import (
-	"github.com/alef-ru/imgidx/embedders"
 	"image"
+	_ "image/jpeg"
 	"math"
 	"testing"
+
+	"github.com/alef-ru/imgidx/embedders"
 )
 
 func TestLowResEmbedderImg2Vec(t *testing.T) {
 	type args struct {
-		img    image.Image
+		img    *image.RGBA
 		height int
 		width  int
 	}

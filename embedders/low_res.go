@@ -3,6 +3,7 @@ package embedders
 import (
 	"fmt"
 	"image"
+	"image/draw"
 )
 
 type lowResolutionEmbedder struct {
@@ -15,7 +16,7 @@ func (v lowResolutionEmbedder) Dims() int {
 }
 
 // Img2Vec returns the vector representation of the image.
-func (v lowResolutionEmbedder) Img2Vec(img image.Image) (Vector, error) {
+func (v lowResolutionEmbedder) Img2Vec(img *image.RGBA) (Vector, error) {
 	if v.Width <= 0 || v.Height <= 0 {
 		return nil, fmt.Errorf("lowResolutionEmbedder's Width and Height parameters must be greater than 0")
 	}
@@ -29,15 +30,15 @@ func (v lowResolutionEmbedder) Img2Vec(img image.Image) (Vector, error) {
 		return nil, fmt.Errorf(
 			"image width and height must not be less than lowResolutionEmbedder's Width and Height parameters")
 	}
+
 	vec := make(Vector, v.Height*v.Width*4)
 	for row := 0; row < v.Height; row++ {
 		for col := 0; col < v.Width; col++ {
-			rgba := getAverageColor(img,
-				col*img.Bounds().Dx()/v.Width,
-				(col+1)*img.Bounds().Dx()/v.Width,
-				row*img.Bounds().Dy()/v.Height,
-				(row+1)*img.Bounds().Dy()/v.Height,
-			)
+			minX := col * img.Bounds().Dx() / v.Width
+			maxX := (col + 1) * img.Bounds().Dx() / v.Width
+			minY := row * img.Bounds().Dy() / v.Height
+			maxY := (row + 1) * img.Bounds().Dy() / v.Height
+			rgba := getAverageColorRGBA(img, minX, maxX, minY, maxY)
 			for i, f := range rgba {
 				vec[row*v.Width*4+col*4+i] = f
 			}
@@ -46,22 +47,42 @@ func (v lowResolutionEmbedder) Img2Vec(img image.Image) (Vector, error) {
 	return vec, nil
 }
 
-// getAverageColor returns the average color of the given area of the image.
-func getAverageColor(img image.Image, minX int, maxX int, minY int, maxY int) (rgba [4]float64) {
-	for i := minX; i < maxX; i++ {
-		for k := minY; k < maxY; k++ {
-			r, g, b, a := img.At(i, k).RGBA()
-			rgba[0] += float64(r >> 8)
-			rgba[1] += float64(g >> 8)
-			rgba[2] += float64(b >> 8)
-			rgba[3] += float64(a >> 8)
+// getAverageColorRGBA returns the average color of the given area of the image.
+func getAverageColorRGBA(img *image.RGBA, minX int, maxX int, minY int, maxY int) [4]float64 {
+	var (
+		avgColorsInt   [4]int // 4 channels: R, G, B, A
+		avgColorsFloat [4]float64
+		pixelCount     = (maxX - minX) * (maxY - minY)
+		divider        = float64(pixelCount * 255)
+	)
+	if divider == 0 { //image is empty, return zeros
+		return avgColorsFloat
+	}
+	for x := minX; x < maxX; x++ {
+		for y := minY; y < maxY; y++ {
+			i := img.PixOffset(x, y)
+			s := img.Pix[i : i+4 : i+4]
+			for i, c := range s {
+				avgColorsInt[i] += int(c)
+			}
 		}
 	}
-
-	pixelCount := float64((maxX - minX) * (maxY - minY))
-	for i := 0; i < 4; i++ {
-		rgba[i] /= pixelCount * 255
+	for i, c := range avgColorsInt {
+		avgColorsFloat[i] = float64(c) / divider
 	}
+	return avgColorsFloat
+}
+
+func ImageToRGBA(img image.Image) *image.RGBA {
+	if img == nil {
+		return nil
+	}
+	if rgba, ok := img.(*image.RGBA); ok {
+		return rgba
+	}
+	b := img.Bounds()
+	rgba := image.NewRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
+	draw.Draw(rgba, rgba.Bounds(), img, b.Min, draw.Src)
 	return rgba
 }
 

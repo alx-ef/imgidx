@@ -6,14 +6,14 @@ import (
 	"testing"
 )
 
-func img(w, h int) image.Image {
+func img(w, h int) *image.RGBA {
 	return image.NewRGBA(image.Rect(0, 0, w, h))
 }
 
 func TestAspectRatioEmbedder(t *testing.T) {
 	tests := []struct {
 		name    string
-		image   image.Image
+		image   *image.RGBA
 		want    float64
 		wantErr bool
 	}{

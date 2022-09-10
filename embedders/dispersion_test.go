@@ -16,7 +16,7 @@ func TestColorDispersionEmbedder_Img2Vec(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		image    image.Image
+		image    *image.RGBA
 		wantFrom float64
 		wantTo   float64
 		wantErr  bool

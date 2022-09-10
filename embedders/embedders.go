@@ -22,7 +22,7 @@ func (v1 Vector) Distance(v2 Vector) float64 {
 }
 
 type ImageEmbedder interface {
-	Img2Vec(image.Image) (Vector, error)
+	Img2Vec(*image.RGBA) (Vector, error)
 	// Dims returns the number of dimensions of vectors produced by the ImageEmbedder
 	Dims() int
 }

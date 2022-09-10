@@ -101,7 +101,7 @@ func (idx *kDTreeIndex) AddVector(vec embedders.Vector, uri string, attrs interf
 }
 
 func (idx *kDTreeIndex) Nearest(img image.Image) (uri string, attrs interface{}, distance float64, err error) {
-	vec, err := idx.embedder.Img2Vec(img)
+	vec, err := idx.embedder.Img2Vec(embedders.ImageToRGBA(img))
 	if err != nil {
 		return "", nil, 0, err
 	}
@@ -150,7 +150,7 @@ func (idx *kDTreeIndex) Remove(f func(vec embedders.Vector, uri string, attrs in
 
 func (idx *kDTreeIndex) AddImage(img image.Image, uri string, attrs interface{}) (embedders.Vector, error) {
 	//log.Println("Adding image", URI)
-	vec, err := idx.embedder.Img2Vec(img)
+	vec, err := idx.embedder.Img2Vec(embedders.ImageToRGBA(img))
 	if err != nil {
 		return nil, err
 	}

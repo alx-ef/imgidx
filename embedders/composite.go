@@ -11,7 +11,7 @@ func Composition(embedders []ImageEmbedder) ImageEmbedder {
 	return compositeEmbedder{Embedders: embedders}
 }
 
-func (a compositeEmbedder) Img2Vec(image image.Image) (Vector, error) {
+func (a compositeEmbedder) Img2Vec(image *image.RGBA) (Vector, error) {
 	if image == nil {
 		return nil, ErrEmptyImage
 	}
