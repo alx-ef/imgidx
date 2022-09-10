@@ -22,16 +22,15 @@ func (v colorDispersionEmbedder) Img2Vec(image image.Image) (Vector, error) {
 	if err != nil {
 		return nil, err
 	}
+	rgbaImage := ImageToRGBA(image)
+	var r, g, b float64
+	for i := 0; i < len(rgbaImage.Pix); i += 4 {
 
-	var sum_r, sum_g, sum_b float64
-	for x := 0; x < image.Bounds().Dx(); x++ {
-		for y := 0; y < image.Bounds().Dy(); y++ {
-			r, g, b, _ := image.At(x, y).RGBA()
-			sum_r += math.Abs(means[0] - float64(r>>8)/255)
-			sum_g += math.Abs(means[1] - float64(g>>8)/255)
-			sum_b += math.Abs(means[2] - float64(b>>8)/255)
-		}
+		r += math.Abs(means[0] - float64(rgbaImage.Pix[i])/255)
+		g += math.Abs(means[1] - float64(rgbaImage.Pix[i+1])/255)
+		b += math.Abs(means[2] - float64(rgbaImage.Pix[i+2])/255)
+		// rgbaImage.Pix[i+3] is alpha channel, it's intentionally ignored
 	}
 	pixelCount := float64(image.Bounds().Dx() * image.Bounds().Dy())
-	return []float64{2 * sum_r / pixelCount, 2 * sum_g / pixelCount, 2 * sum_b / pixelCount}, nil
+	return []float64{2 * r / pixelCount, 2 * g / pixelCount, 2 * b / pixelCount}, nil
 }

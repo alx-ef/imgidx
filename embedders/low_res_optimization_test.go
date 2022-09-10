@@ -14,7 +14,6 @@ import (
 // BenchmarkLowResEmbedder_Img2Vec_NoConversion_8_8-10         9410            124503 ns/op           42048 B/op      10001 allocs/op
 //
 // After optimisation:
-// BenchmarkLowResEmbedder_Img2Vec_NoConversion_8_8-10        23956             49136 ns/op            2048 B/op          1 allocs/op
 // BenchmarkLowResEmbedder_Img2Vec_NoConversion_8_8-10        23792             48998 ns/op            2048 B/op          1 allocs/op
 func BenchmarkLowResEmbedder_Img2Vec_NoConversion_8_8(b *testing.B) {
 	e := embedders.NewLowResolutionEmbedder(8, 8)
@@ -47,8 +46,26 @@ func BenchmarkLowResEmbedder_Img2Vec_Jpeg_8_8(b *testing.B) {
 	}
 }
 
+// Before optimisation:
+// BenchmarkDispersionEmbedder_Img2Vec_NoConversion_8_8-10    	    6752	    175848 ns/op	   40056 B/op	   10002 allocs/op
+//
+// After optimisation:
+// BenchmarkDispersionEmbedder_Img2Vec_NoConversion_8_8-10    	   18382	     65366 ns/op	      56 B/op	       2 allocs/op
+func BenchmarkDispersionEmbedder_Img2Vec_NoConversion_8_8(b *testing.B) {
+	e := embedders.NewColorDispersionEmbedder()
+	img := createTestImage(100, 100)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := e.Img2Vec(img)
+		assert.NoError(b, err)
+	}
+}
+
 func TestRGBAvsYCbCr(t *testing.T) {
-	e := embedders.NewLowResolutionEmbedder(8, 8)
+	e := embedders.Composition([]embedders.ImageEmbedder{
+		embedders.NewLowResolutionEmbedder(8, 8),
+		embedders.NewColorDispersionEmbedder(),
+	})
 	path := "testdata/lena.jpeg"
 	ycbcrImg, err := loadImage(path)
 	assert.NoErrorf(t, err, "Failed to load test image %s", path)
